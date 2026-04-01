@@ -23,9 +23,9 @@ interface ButtonProps {
 
 const variantStyles: Record<Variant, { bg: string; text: string; border: string }> = {
   primary: { bg: Colors.primary, text: '#FFFFFF', border: Colors.primary },
-  secondary: { bg: Colors.accent, text: '#FFFFFF', border: Colors.accent },
+  secondary: { bg: Colors.primary, text: '#FFFFFF', border: Colors.primary },
   outline: { bg: 'transparent', text: Colors.primary, border: Colors.border },
-  danger: { bg: Colors.danger, text: '#FFFFFF', border: Colors.danger },
+  danger: { bg: Colors.error, text: '#FFFFFF', border: Colors.error },
 };
 
 export function Button({
