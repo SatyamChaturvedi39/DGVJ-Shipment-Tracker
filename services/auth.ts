@@ -1,7 +1,5 @@
 import {
   signInWithPhoneNumber,
-  PhoneAuthProvider,
-  signInWithCredential,
   signOut as firebaseSignOut,
   ConfirmationResult,
 } from 'firebase/auth';
@@ -17,10 +15,21 @@ export async function sendOTP(phoneNumber: string): Promise<void> {
     return;
   }
 
-  // In production, you need a RecaptchaVerifier.
-  // For now this is a placeholder — real implementation needs
-  // expo-dev-client or a custom dev build.
-  throw new Error('Production Firebase Phone Auth requires RecaptchaVerifier setup');
+  // phoneNumber must include country code, e.g. +919876543210
+  // RecaptchaVerifier is required for web-based Firebase Phone Auth.
+  // For Expo managed workflow use expo-dev-client with @react-native-firebase,
+  // or implement a custom RecaptchaVerifier for the JS SDK.
+  // See: https://firebase.google.com/docs/auth/web/phone-auth
+  try {
+    // NOTE: replace `recaptchaVerifier` with a real ApplicationVerifier instance
+    // confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+    throw new Error(
+      'RecaptchaVerifier not yet configured. Set up expo-dev-client or implement ApplicationVerifier.'
+    );
+  } catch (e: any) {
+    console.error('[Firebase] sendOTP failed:', e?.message ?? e);
+    throw e;
+  }
 }
 
 export async function verifyOTP(code: string): Promise<boolean> {
@@ -35,8 +44,13 @@ export async function verifyOTP(code: string): Promise<boolean> {
     throw new Error('No OTP request found. Call sendOTP first.');
   }
 
-  await confirmationResult.confirm(code);
-  return true;
+  try {
+    await confirmationResult.confirm(code);
+    return true;
+  } catch (e: any) {
+    console.error('[Firebase] verifyOTP failed:', e?.message ?? e);
+    throw e;
+  }
 }
 
 export async function signOut(): Promise<void> {
@@ -44,7 +58,12 @@ export async function signOut(): Promise<void> {
     mockPhone = null;
     return;
   }
-  await firebaseSignOut(auth);
+  try {
+    await firebaseSignOut(auth);
+  } catch (e: any) {
+    console.error('[Firebase] signOut failed:', e?.message ?? e);
+    throw e;
+  }
 }
 
 export async function getIdToken(): Promise<string | null> {

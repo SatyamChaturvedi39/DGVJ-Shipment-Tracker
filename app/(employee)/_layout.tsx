@@ -13,13 +13,13 @@ export default function EmployeeLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.accent },
+        headerStyle: { backgroundColor: Colors.darkHeader },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
-        tabBarActiveTintColor: Colors.accent,
+        tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
-          backgroundColor: Colors.surface,
+          backgroundColor: Colors.surfaceElevated,
           borderTopColor: Colors.border,
           height: 60,
           paddingBottom: 8,

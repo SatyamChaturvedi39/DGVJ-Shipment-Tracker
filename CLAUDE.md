@@ -86,20 +86,22 @@ Admin manually triggers phase transitions.
 ## Color palette (constants/colors.ts)
 
 ```
-primary:        #1B2A4A  (navy — headers, primary buttons)
-primaryLight:   #2D4373
-accent:         #3B82F6  (blue — links, active states)
-accentLight:    #60A5FA
-success:        #10B981  (green)
-warning:        #F59E0B  (amber)
-danger:         #EF4444  (red)
-background:     #F8FAFC  (off-white)
-surface:        #FFFFFF
-textPrimary:    #1E293B
-textSecondary:  #64748B
-textMuted:      #94A3B8
-border:         #E2E8F0
-inputBg:        #F1F5F9
+primary:         #C62828  (deep red — Digvijay brand, buttons, badges, tab active)
+primaryDark:     #8E0000  (darker red — pressed states)
+primaryLight:    #FF5F52  (lighter red — accents)
+background:      #FFFFFF
+surface:         #F5F5F5
+surfaceElevated: #FFFFFF  (tab bars, cards)
+textPrimary:     #1A1A1A
+textSecondary:   #757575
+textOnPrimary:   #FFFFFF  (text on red backgrounds)
+success:         #2E7D32
+warning:         #F57F17
+error:           #C62828
+border:          #E0E0E0
+darkHeader:      #1A1A2E  (header bars only — all three role layouts)
+textMuted:       #757575  (alias for textSecondary)
+inputBg:         #F5F5F5  (alias for surface)
 ```
 
 ---

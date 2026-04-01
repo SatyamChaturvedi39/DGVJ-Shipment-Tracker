@@ -13,8 +13,8 @@ interface PlaceholderScreenProps {
 
 const roleBadgeColors: Record<UserRole, string> = {
   admin: Colors.primary,
-  employee: Colors.accent,
-  customer: '#0D9488',
+  employee: Colors.primary,
+  customer: Colors.primary,
 };
 
 export function PlaceholderScreen({ role, screenName }: PlaceholderScreenProps) {

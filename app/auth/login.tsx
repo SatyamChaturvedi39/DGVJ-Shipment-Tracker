@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-na
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
-import { Config } from '@/constants/config';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +25,7 @@ export default function LoginScreen() {
       await login(`+91${phone}`);
       router.push('/auth/verify');
     } catch (e: any) {
+      console.error('[Login] sendOTP error:', e?.message ?? e);
       setError(e.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
@@ -70,9 +70,12 @@ export default function LoginScreen() {
           />
         </View>
 
-        {Config.DEV_ROLE_SELECTOR && (
+        {__DEV__ && (
           <View style={styles.devSection}>
-            <Text style={styles.devLabel}>DEV MODE — Select Role</Text>
+            <View style={styles.devBanner}>
+              <Text style={styles.devBannerText}>DEV ONLY — Remove before release</Text>
+            </View>
+            <Text style={styles.devLabel}>Select Role to Skip OTP</Text>
             <View style={styles.devButtons}>
               <Button
                 title="Admin"
@@ -129,7 +132,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: Colors.textOnPrimary,
   },
   appName: {
     fontSize: 28,
@@ -150,6 +153,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     alignItems: 'center',
+  },
+  devBanner: {
+    backgroundColor: '#C62828',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 14,
+  },
+  devBannerText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   devLabel: {
     fontSize: 11,
