@@ -49,6 +49,7 @@ Auth: Firebase Phone OTP for all roles. No passwords. Role is stored in the DB a
 - **No email lock-in** — GitHub, Supabase, Render not tied to any specific email
 - **India-only phone numbers** — +91 prefix hardcoded on login screen
 - **`npm install` must use `--legacy-peer-deps`** — firebase/supabase conflict with React 19
+- **`npx expo install` syntax for Expo packages:** `npx expo install <pkg> -- --legacy-peer-deps`
 
 ---
 
@@ -79,7 +80,11 @@ companies:           id, name, contact_phone
 | delivery | Live map | Employee 2 (delivery driver) |
 | completed | Summary | None |
 
-Admin manually triggers phase transitions. Phase order: `pickup → transit → delivery → completed`
+Phase order: `pickup → transit → delivery → completed`
+
+- Admin triggers phase transitions from shipment-detail screen
+- Employee triggers pickup→transit ("Mark as Picked Up") and delivery→completed ("Mark as Delivered") from job-detail screen
+- **Backend note:** `PUT /shipments/{id}/phase` is currently admin-only in tracking.py. Employee phase transitions work in dev mode only (dev-mock-token returns admin). For production, backend needs `require_role("admin", "employee")`.
 
 ---
 
@@ -126,7 +131,9 @@ app/
     shipment-detail.tsx    # ✅ Phase 3 — detail view, timeline, phase transitions, status events
   (employee)/
     _layout.tsx            # Employee tab navigator (auth guard: role === 'employee')
-    my-jobs.tsx            # ⬜ Phase 4 — currently PlaceholderScreen
+                           #   — shows employee name in header right of My Jobs tab
+    my-jobs.tsx            # ✅ Phase 4 — Active/Completed tabs, job cards, pull-to-refresh
+    job-detail.tsx         # ✅ Phase 4 — route, goods, timeline, GPS tracking, phase actions
   (customer)/
     _layout.tsx            # Customer tab navigator (auth guard: role === 'customer')
     my-shipments.tsx       # ⬜ Phase 5 — currently PlaceholderScreen
@@ -142,6 +149,8 @@ services/
   firebase.ts              # Firebase init with AsyncStorage persistence
   auth.ts                  # sendOTP, verifyOTP, signOut + DEV_MOCK_AUTH
   api.ts                   # Axios instance with token interceptor + all API functions
+                           #   — getIdToken() errors are caught in interceptor (won't crash)
+                           #   — getShipments/getEmployees/getCustomers return ?? [] (null-safe)
 context/
   AuthContext.tsx           # user, isLoading, login, verifyOTP, logout, setDevRole
 hooks/
@@ -152,7 +161,7 @@ constants/
   colors.ts                # Color palette (see above)
   config.ts                # API_BASE_URL, DEV_MOCK_AUTH, DEV_ROLE_SELECTOR flags
 backend/
-  main.py                  # FastAPI app with CORS
+  main.py                  # FastAPI app with CORS (allow_origins=["*"])
   database.py              # Supabase client singleton
   dependencies.py          # get_current_user, require_role()
   requirements.txt
@@ -167,8 +176,8 @@ backend/
     auth.py                # POST /auth/verify-token
     users.py               # GET /users/me, PUT /users/me, GET /users/employees|customers
     shipments.py           # Full CRUD: POST/GET/GET{id}/PUT/DELETE /shipments
-    tracking.py            # PUT /shipments/{id}/phase, POST /shipments/{id}/status-event
-                           # POST /location/update, GET /location/{id}/latest
+    tracking.py            # PUT /shipments/{id}/phase (admin-only), POST /shipments/{id}/status-event
+                           # POST /location/update (employee-only), GET /location/{id}/latest
   websocket/
     manager.py             # ConnectionManager singleton — broadcast to shipment watchers
     handler.py             # WS /ws/{shipment_id} endpoint
@@ -201,6 +210,30 @@ When dev mode is enabled (`EXPO_PUBLIC_DEV_MOCK_AUTH=true`, the default):
 
 **Do not remove dev mode** — it's essential for building UI without a real device.
 
+### Dev mode behaviour per role (important for employee screens)
+
+The backend `dependencies.py` maps `dev-mock-token` to **the first admin user in the DB**:
+```python
+if token == "dev-mock-token":
+    result = supabase.table("users").select("*").eq("role", "admin").limit(1).execute()
+```
+This means:
+- **All API calls in dev mode behave as admin**, regardless of which dev role the frontend selected
+- `GET /shipments` → returns ALL shipments (admin path), not just assigned ones
+- `PUT /shipments/{id}/phase` → works (admin-only endpoint, accepted)
+- `POST /location/update` → **returns 403** (employee-only, admin user rejected)
+
+**Consequence for employee screens:**
+- `my-jobs.tsx` shows all shipments in dev mode (filtered by `Config.DEV_MOCK_AUTH` flag, not employee ID)
+- `job-detail.tsx` skips `POST /location/update` in dev mode — GPS UI still works, coords update, but not sent to backend
+- Phase transitions (Mark Picked Up / Mark Delivered) work in dev mode
+
+**If dev mode admin user lookup fails (401 "No admin user found"):**
+This means there is no user with `role = 'admin'` in the Supabase DB. Fix:
+```sql
+UPDATE users SET role = 'admin' WHERE phone = '+91XXXXXXXXXX';
+```
+
 ### Environment variable reference (.env)
 
 ```
@@ -224,15 +257,13 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 1 | ✅ DONE | Project setup, Firebase OTP auth, role-based navigation skeleton |
 | 2 | ✅ DONE | FastAPI backend, Supabase schema, all API endpoints, WebSocket server |
 | 3 | ✅ DONE | All 4 Admin screens (dashboard, create-shipment, archive, shipment-detail) |
-| 4 | ⬜ NEXT | Employee screens + live GPS (+ fix known issues below first) |
-| 5 | ⬜ | Customer screens + tracking UI |
+| 4 | ✅ DONE | Employee screens (my-jobs, job-detail) + live GPS tracking |
+| 5 | ⬜ NEXT | Customer screens + tracking UI (live map for pickup/delivery phases) |
 | 6 | ⬜ | Polish, testing, deployment |
 
 ---
 
-## Known issues to fix before / during Phase 4
-
-These problems exist but were deferred — address them before building on top:
+## Known issues / production gaps
 
 ### 1. Real OTP does not work on physical device
 - **Root cause:** Firebase JS SDK's `fakeRecaptchaVerifier` only works with Firebase test phone numbers. Real phone numbers with real OTP require `@react-native-firebase` (native build) or a server-side SMS gateway.
@@ -241,20 +272,30 @@ These problems exist but were deferred — address them before building on top:
 
 ### 2. New users are always created as 'customer' role
 - **Root cause:** `backend/routes/auth.py` `POST /auth/verify-token` inserts all new users with `role: 'customer'` hardcoded.
-- **To fix:** Change the endpoint to accept a `role` param (admin-only), OR fix the default to look up an invite/whitelist table, OR manually update roles in Supabase SQL Editor: `UPDATE users SET role = 'admin' WHERE phone = '+91XXXXXXXXXX';`
+- **To fix:** Manually update roles in Supabase SQL Editor: `UPDATE users SET role = 'admin' WHERE phone = '+91XXXXXXXXXX';`
 
-### 3. `EXPO_PUBLIC_API_URL` must be set for physical device
+### 3. Employee phase transitions are admin-only in backend
+- **Root cause:** `PUT /shipments/{id}/phase` in `tracking.py` uses `require_role("admin")`.
+- **Current state:** Works in dev mode (dev-mock-token → admin). Will return 403 for real employee users.
+- **To fix for production:** Change `require_role("admin")` to `require_role("admin", "employee")` in `backend/routes/tracking.py`, and add access checks (employee must be assigned to the shipment).
+
+### 4. `POST /location/update` skipped in dev mode
+- **Root cause:** Requires employee role; dev-mock-token returns admin → 403.
+- **Current state:** In `job-detail.tsx`, location updates are skipped when `Config.DEV_MOCK_AUTH` is true. GPS UI (watcher, coordinates display) works normally.
+- **To fix for production:** No code change needed — real employee tokens will pass the role check.
+
+### 5. `EXPO_PUBLIC_API_URL` must be set for physical device
 - Phone cannot reach `localhost:8000` — must use laptop's LAN IP.
 - Already handled by config.ts reading from env var.
 - Action: Set in `.env` when testing on device, reset to `localhost:8000` for emulator dev.
 
-### 4. Backend must bind to 0.0.0.0 for LAN access
+### 6. Backend must bind to 0.0.0.0 for LAN access
 - Default `uvicorn main:app --reload` binds to `127.0.0.1` (localhost only).
 - For physical device testing: `uvicorn main:app --reload --host 0.0.0.0`
 
 ---
 
-## What's real vs placeholder (as of Phase 3)
+## What's real vs placeholder (as of Phase 4)
 
 | Thing | State |
 |-------|-------|
@@ -263,9 +304,11 @@ These problems exist but were deferred — address them before building on top:
 | All backend API endpoints | Fully implemented, connected to Supabase |
 | WebSocket /ws/{shipment_id} | Fully implemented with ConnectionManager |
 | Admin screens (all 4) | ✅ Fully implemented — Phase 3 complete |
-| Employee screen (my-jobs) | PlaceholderScreen — Phase 4 |
+| Employee my-jobs screen | ✅ Fully implemented — Phase 4 complete |
+| Employee job-detail screen | ✅ Fully implemented — Phase 4 complete |
 | Customer screen (my-shipments) | PlaceholderScreen — Phase 5 |
-| react-native-maps | Installed but not yet used — Phase 4/5 |
+| expo-location | ✅ Installed (~19.0.8), plugin added to app.json |
+| react-native-maps | Installed but not yet used — Phase 5 |
 
 ---
 
@@ -295,6 +338,52 @@ transit:   bg #E3F2FD, text #1565C0  (blue)
 delivery:  bg #FFF8E1, text #F57F17  (amber)
 completed: bg #E8F5E9, text #2E7D32  (green)
 ```
+
+---
+
+## Key implementation notes (from Phase 4)
+
+### Employee job-detail navigation (same pattern as admin shipment-detail)
+`job-detail` is a hidden tab screen in `app/(employee)/_layout.tsx`:
+```tsx
+<Tabs.Screen
+  name="job-detail"
+  options={{
+    title: 'Job Details',
+    href: null,
+    tabBarStyle: { display: 'none' },
+  }}
+/>
+```
+Navigate to it via: `router.push('/(employee)/job-detail?id=${shipment.id}')`
+
+### Employee role determination
+In `job-detail.tsx`, the employee's role (pickup vs delivery) is determined client-side:
+```ts
+const employeeRole: 'pickup' | 'delivery' =
+  shipment?.delivery_employee_id === userId ? 'delivery' : 'pickup';
+```
+Defaults to 'pickup' when userId doesn't match (dev mode where userId = 'dev-user-1').
+
+### GPS tracking in job-detail.tsx
+- Uses `expo-location` — `Location.watchPositionAsync` with High accuracy, 5s interval, 10m distance
+- GPS section only renders when `phase matches employeeRole` (pickup driver sees GPS during pickup phase, delivery driver during delivery phase)
+- Location watcher is stored in `useRef<Location.LocationSubscription>` and cleaned up on unmount
+- In dev mode: watcher runs but `POST /location/update` is skipped (403 prevention)
+- Pulsing dot: `Animated.loop` on opacity 1→0.3→1 at 800ms, `useNativeDriver: true`
+
+### my-jobs.tsx tab filtering
+- Active tab: `current_phase === 'pickup' || current_phase === 'delivery'`
+- Completed tab: `current_phase === 'completed'`
+- Assignment filter: skipped in dev mode (`Config.DEV_MOCK_AUTH`), enforced in production
+- Backend does server-side filtering for real employees (only returns assigned shipments)
+
+### Employee name in header
+In `app/(employee)/_layout.tsx`, the employee's name is shown in the My Jobs tab header via `headerRight`:
+```tsx
+headerRight: () => <EmployeeName name={user.name ?? 'Employee'} />,
+```
+The `user` object comes from `useAuth()` in the layout component (already read for auth guard).
 
 ---
 
@@ -342,7 +431,7 @@ uvicorn main:app --reload
 **Installing new packages:**
 ```bash
 # Expo-managed packages:
-npx expo install <package>
+npx expo install <package> -- --legacy-peer-deps
 
 # Other npm packages:
 npm install <package> --legacy-peer-deps

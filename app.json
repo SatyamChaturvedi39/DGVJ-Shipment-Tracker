@@ -32,7 +32,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Digvijay BLR needs your location to track shipment delivery."
+        }
+      ]
     ]
   }
 }

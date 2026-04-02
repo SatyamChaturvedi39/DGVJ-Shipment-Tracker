@@ -10,9 +10,13 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  const token = await getIdToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = await getIdToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (e) {
+    console.warn('[API] Could not get auth token:', e);
   }
   return config;
 });
@@ -38,12 +42,12 @@ export async function updateMe(payload: { name?: string; company_name?: string }
 
 export async function getEmployees(): Promise<User[]> {
   const { data } = await api.get('/users/employees');
-  return data;
+  return data ?? [];
 }
 
 export async function getCustomers(): Promise<User[]> {
   const { data } = await api.get('/users/customers');
-  return data;
+  return data ?? [];
 }
 
 // ─── Shipments ───────────────────────────────────────────────────────────────
@@ -64,7 +68,7 @@ export interface CreateShipmentPayload {
 
 export async function getShipments(): Promise<Shipment[]> {
   const { data } = await api.get('/shipments');
-  return data;
+  return data ?? [];
 }
 
 export async function getShipment(id: string): Promise<ShipmentDetail> {
