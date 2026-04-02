@@ -17,6 +17,23 @@ import { getShipment, transitionPhase, updateLocation } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { ShipmentDetail, StatusEvent, ShipmentPhase } from '@/types';
 
+// MANUAL TEST REQUIRED: GPS tracking section appears for correct phase
+//   1. Open a shipment in "Pickup" phase as the pickup employee
+//   2. GPS tracking section (pulsing dot, coordinates) must be visible
+//   3. The section must NOT be visible for a delivery employee in pickup phase
+//   4. In dev mode: GPS coordinates update on screen but POST /location/update is
+//      skipped (admin token 403) — verify no crash, just silent skip
+//
+// MANUAL TEST REQUIRED: Mark as Picked Up transitions phase correctly
+//   1. Open a shipment in "Pickup" phase as its pickup employee
+//   2. Tap "Mark as Picked Up" → confirm → phase must change to "transit"
+//   3. GPS section disappears; job moves to Completed tab after refresh
+//
+// MANUAL TEST REQUIRED: Mark as Delivered transitions phase correctly
+//   1. Open a shipment in "Delivery" phase as its delivery employee
+//   2. Tap "Mark as Delivered" → confirm → phase must change to "completed"
+//   3. Job moves to Completed tab; completed_at is set in the DB
+
 // ─── Phase helpers ────────────────────────────────────────────────────────────
 
 const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {

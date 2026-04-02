@@ -15,6 +15,19 @@ import { Colors } from '@/constants/colors';
 import { getShipment, getEmployees, addStatusEvent, transitionPhase } from '@/services/api';
 import type { ShipmentDetail, StatusEvent, User, ShipmentPhase } from '@/types';
 
+// MANUAL TEST REQUIRED: Shipment detail shows status timeline
+//   1. Open any active shipment from the Dashboard
+//   2. Scroll to the status timeline — 6 events shown; completed ones have green checkmarks
+//   3. Tap "Add Status Update" → enter a label and description → tap Save
+//   4. Verify the new event appears immediately at the bottom of the timeline
+//
+// MANUAL TEST REQUIRED: Advance phase button works
+//   1. Open a shipment in "Pickup" phase
+//   2. Tap "Advance to Transit" → confirm → phase badge updates to "In Transit"
+//   3. Tap "Advance to Delivery" → confirm → phase badge updates to "Delivery"
+//   4. Tap "Mark as Completed" → confirm → phase badge updates to "Completed"
+//   5. Verify completed shipment moves to the Archive tab and disappears from Dashboard
+
 // ─── Phase helpers ────────────────────────────────────────────────────────────
 
 const PHASE_ORDER: ShipmentPhase[] = ['pickup', 'transit', 'delivery', 'completed'];

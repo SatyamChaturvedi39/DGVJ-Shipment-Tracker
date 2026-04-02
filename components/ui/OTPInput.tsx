@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   boxFocused: {
-    borderColor: Colors.accent,
+    borderColor: Colors.primary,
     backgroundColor: Colors.surface,
   },
   boxFilled: {

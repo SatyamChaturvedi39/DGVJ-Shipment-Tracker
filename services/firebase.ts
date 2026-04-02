@@ -5,8 +5,13 @@
 // 3. Fill in all EXPO_PUBLIC_FIREBASE_* values in your .env file
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
+import type { Persistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// Firebase 12 omits getReactNativePersistence from its public TS declarations but it
+// is present at runtime. Access it via a typed cast to avoid a tsc error.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const getReactNativePersistence = (require('firebase/auth') as { getReactNativePersistence: (s: typeof AsyncStorage) => Persistence }).getReactNativePersistence;
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,

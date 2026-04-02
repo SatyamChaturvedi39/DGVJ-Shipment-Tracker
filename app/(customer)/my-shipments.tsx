@@ -14,6 +14,13 @@ import { Colors } from '@/constants/colors';
 import { getShipments } from '@/services/api';
 import type { Shipment, ShipmentPhase, TransportMode } from '@/types';
 
+// MANUAL TEST REQUIRED: My Shipments shows permitted shipments only
+//   1. Log in as a customer (real phone OTP or Firebase test number)
+//   2. Only shipments where this customer's user ID is in shipment_permissions must appear
+//   3. Shipments NOT granted to this customer must not be visible
+//   4. Search bar filters by tracking ID — verify partial matches work
+//   5. Tap a shipment card → navigates to the tracking screen
+
 // ─── Phase config ─────────────────────────────────────────────────────────────
 
 const PHASE_BADGE: Record<ShipmentPhase, { bg: string; text: string }> = {

@@ -18,6 +18,14 @@ import { Colors } from '@/constants/colors';
 import { createShipment, getEmployees, getCustomers } from '@/services/api';
 import type { User } from '@/types';
 
+// MANUAL TEST REQUIRED: Create shipment form submits and creates real record
+//   1. Open app in dev mode as Admin → tap "+" (Create Shipment)
+//   2. Fill in Origin, Destination, Transport Number; toggle Train/Air
+//   3. Optionally pick a Pickup Employee, Delivery Employee, and Customer(s)
+//   4. Set an ETA date and time; tap "Create Shipment"
+//   5. Verify: success alert shown, new shipment appears in Dashboard with DGVJ- tracking ID
+//   6. Verify: tracking ID starts with "DGVJ-" and shipment starts in Pickup phase
+
 // ─── Segmented toggle ────────────────────────────────────────────────────────
 
 function SegmentedToggle({

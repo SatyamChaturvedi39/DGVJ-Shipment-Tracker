@@ -15,6 +15,15 @@ import { getShipments } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Shipment, ShipmentPhase } from '@/types';
 
+// MANUAL TEST REQUIRED: My Jobs shows assigned shipments
+//   In dev mode all shipments are shown (dev-mock-token = admin).
+//   For production testing with a real employee token:
+//   1. Log in as an employee (real phone OTP or Firebase test number)
+//   2. "Active" tab must show only shipments where pickup_employee_id or
+//      delivery_employee_id equals this employee's user ID
+//   3. "Completed" tab shows only this employee's completed shipments
+//   4. Pull-to-refresh reloads the list
+
 // ─── Phase badge ─────────────────────────────────────────────────────────────
 
 const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {

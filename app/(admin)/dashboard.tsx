@@ -14,6 +14,11 @@ import { getShipments } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Shipment, ShipmentPhase } from '@/types';
 
+// MANUAL TEST REQUIRED: Dashboard loads shipments from backend
+//   1. Open app in dev mode as Admin
+//   2. Dashboard should show the shipment list with correct stats (active / completed count)
+//   3. Pull-to-refresh should reload the list without errors
+
 // ─── Phase badge ─────────────────────────────────────────────────────────────
 
 const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {

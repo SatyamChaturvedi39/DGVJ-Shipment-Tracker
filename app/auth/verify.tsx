@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: Colors.accent,
+    color: Colors.primary,
     fontWeight: '600',
   },
   header: {
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   error: {
-    color: Colors.danger,
+    color: Colors.error,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   resendLink: {
     fontSize: 14,
-    color: Colors.accent,
+    color: Colors.primary,
     fontWeight: '600',
   },
 });

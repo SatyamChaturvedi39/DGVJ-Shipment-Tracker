@@ -259,7 +259,7 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 3 | ✅ DONE | All 4 Admin screens (dashboard, create-shipment, archive, shipment-detail) |
 | 4 | ✅ DONE | Employee screens (my-jobs, job-detail) + live GPS tracking |
 | 5 | ✅ DONE | Customer screens + tracking UI (live map for pickup/delivery phases) |
-| 6 | ⬜ NEXT | Polish, testing, deployment |
+| 6 | ✅ DONE | Testing: 30 pytest tests green, 0 TypeScript errors, integration check script, manual test comments |
 
 ---
 
@@ -425,6 +425,48 @@ and `https://` → `wss://`. Override via `EXPO_PUBLIC_WS_URL` env var if needed
 - `getLatestLocation(shipmentId)` called on mount + every 10 seconds via `setInterval`
 - If API returns null → shows placeholder card "Tracking will begin when driver starts their journey"
 - Map region delta: 0.01 (street level)
+
+---
+
+## Key implementation notes (from Phase 6)
+
+### Backend test suite (`backend/tests/`)
+
+| File | What it tests |
+|------|---------------|
+| `conftest.py` | Session-scoped test admin user in Supabase + `get_current_user` dependency override |
+| `test_health.py` | `GET /health` — 3 tests |
+| `test_shipments.py` | Full CRUD + phase transitions + status events — 13 tests |
+| `test_users.py` | `/users/me`, `/users/employees`, `/users/customers`, `PUT /users/me` — 10 tests |
+| `test_location.py` | 403 for admin on employee endpoint, 403 with no auth, null response when empty — 4 tests |
+| `integration_check.py` | Standalone script: full lifecycle + WebSocket test against live server |
+
+**Run:** `cd backend && pytest tests/ -v` — **30/30 pass**
+
+### Auth strategy in tests
+- FastAPI `dependency_overrides` replaces `get_current_user` with a mock that returns a test admin.
+- The mock still declares `Depends(HTTPBearer())` so requests with **no** Authorization header still get 403.
+- A real admin user row (`id = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`) is inserted into Supabase before tests and deleted after, so `shipments.created_by` FK constraints are satisfied.
+- All shipments created during tests are cascade-deleted in teardown.
+
+### TypeScript fixes (Phase 6)
+- `Colors.accent` → `Colors.primary` in `app/auth/verify.tsx` (×2) and `components/ui/OTPInput.tsx`
+- `Colors.danger` → `Colors.error` in `app/auth/verify.tsx`
+- `getReactNativePersistence` moved to `require('firebase/auth')` cast in `services/firebase.ts` (not in Firebase 12 public TS types but present at runtime)
+
+### Integration check script
+```bash
+# Start backend first:
+cd backend && venv\Scripts\activate && uvicorn main:app --reload
+
+# Then in a separate terminal:
+python backend/tests/integration_check.py
+```
+Tests 12 REST steps + 1 WebSocket step. Prints PASS/FAIL/SKIP for each.
+`POST /location/update` is KNOWN_SKIP (requires employee token; dev-mock-token is admin).
+
+### TEST_REPORT.md
+Created at repo root — summary of all automated results + manual test checklist.
 
 ---
 

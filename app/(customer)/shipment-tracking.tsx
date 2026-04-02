@@ -15,6 +15,31 @@ import { Config } from '@/constants/config';
 import { getShipment, getLatestLocation } from '@/services/api';
 import type { ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate } from '@/types';
 
+// MANUAL TEST REQUIRED: Tracking screen shows correct phase UI
+//   Open the tracking screen for a shipment and verify the correct section is shown:
+//   - pickup phase   → LiveMapSection visible with map (or placeholder if no GPS yet)
+//   - transit phase  → TransitCard visible with train/plane icon and transport number
+//   - delivery phase → LiveMapSection visible (delivery driver's GPS)
+//   - completed phase → green "Delivered" card replaces the ETA card; map is hidden
+//
+// MANUAL TEST REQUIRED: Map appears for pickup/delivery phase
+//   1. With a shipment in pickup or delivery phase that has a real employee sharing GPS,
+//      open the tracking screen
+//   2. The MapView (220px tall) must render with a red marker at the driver's location
+//   3. The marker must move in real-time as the driver moves (WebSocket) or on 10s poll
+//   4. On devices without a Google Maps key: MapView renders in Expo Go without a key
+//
+// MANUAL TEST REQUIRED: Transit card appears for transit phase
+//   1. Advance a shipment to transit phase (Admin → Shipment Detail → Advance)
+//   2. Open the customer tracking screen for that shipment
+//   3. TransitCard must show: large train/plane icon, transport number, and any status
+//      events added by Admin (mini-timeline below the card)
+//
+// MANUAL TEST REQUIRED: Status timeline updates after phase change
+//   1. With the tracking screen open, have Admin advance the shipment phase
+//   2. Within a few seconds (WebSocket push or 10s poll), the phase progress dots
+//      and status timeline must update without manually refreshing
+
 // ─── Phase progress ───────────────────────────────────────────────────────────
 
 const PHASES: ShipmentPhase[] = ['pickup', 'transit', 'delivery', 'completed'];
