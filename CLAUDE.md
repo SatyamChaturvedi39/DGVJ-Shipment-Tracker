@@ -182,26 +182,59 @@ When enabled:
 | Phase | Status | What |
 |-------|--------|------|
 | 1 | ✅ DONE | Project setup, Firebase OTP auth, role-based navigation skeleton |
-| 2 | ⬜ NEXT | FastAPI backend, Supabase schema, all API endpoints, WebSocket server |
-| 3 | ⬜ | Admin dashboard screens |
+| 2 | ✅ DONE | FastAPI backend, Supabase schema, all API endpoints, WebSocket server |
+| 3 | ⬜ NEXT | Admin dashboard screens |
 | 4 | ⬜ | Employee screens + live GPS |
 | 5 | ⬜ | Customer screens + tracking UI |
 | 6 | ⬜ | Polish, testing, deployment |
 
 ---
 
-## What's real vs placeholder (as of Phase 1)
+## What's real vs placeholder (as of Phase 2)
 
 | Thing | State |
 |-------|-------|
-| Firebase config in services/firebase.ts | Placeholder keys — needs real Firebase project |
-| /auth/verify-token backend route | Returns mock user — needs Supabase integration |
-| /users/me backend route | Returns mock user — needs Supabase integration |
-| All role screens (dashboard, jobs, shipments) | PlaceholderScreen component |
-| react-native-maps | Installed but not yet used |
-| WebSocket | Handler file exists, no implementation |
+| Firebase config | Real keys in .env (EXPO_PUBLIC_FIREBASE_*) |
+| Firebase Admin SDK | Needs firebase-service-account.json in /backend |
+| All backend API endpoints | Fully implemented, connected to Supabase |
+| WebSocket /ws/{shipment_id} | Fully implemented with ConnectionManager |
+| All role screens (dashboard, jobs, shipments) | PlaceholderScreen component — Phase 3+ |
+| react-native-maps | Installed but not yet used — Phase 4/5 |
 
 ---
+
+## Backend file structure (Phase 2)
+
+```
+backend/
+  main.py              # FastAPI app, CORS, router includes, startup message
+  database.py          # Supabase client singleton (uses SUPABASE_SERVICE_KEY)
+  dependencies.py      # get_current_user, require_role() — Firebase token verification
+  requirements.txt
+  .env                 # SUPABASE_URL, SUPABASE_SERVICE_KEY, FIREBASE_PROJECT_ID
+  firebase-service-account.json  # gitignored — download from Firebase Console
+  migrations/
+    001_initial.sql    # Paste into Supabase SQL Editor to create all tables
+  models/
+    user.py            # UserResponse, UpdateProfileRequest
+    shipment.py        # CreateShipmentRequest, UpdateShipmentRequest, etc.
+  routes/
+    auth.py            # POST /auth/verify-token
+    users.py           # GET /users/me, PUT /users/me, GET /users/employees|customers
+    shipments.py       # Full CRUD: POST/GET/GET{id}/PUT/DELETE /shipments
+    tracking.py        # PUT /shipments/{id}/phase, POST /shipments/{id}/status-event
+                       # POST /location/update, GET /location/{id}/latest
+  websocket/
+    manager.py         # ConnectionManager singleton — broadcast to shipment watchers
+    handler.py         # WS /ws/{shipment_id} endpoint
+```
+
+## Firebase Admin SDK setup (required for production OTP)
+
+1. Firebase Console → Project Settings → Service accounts
+2. Click "Generate new private key" → download JSON
+3. Save as `backend/firebase-service-account.json` (gitignored)
+4. Backend auto-detects it on startup
 
 ## How to run
 
@@ -217,8 +250,9 @@ npx expo start
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload
 # Docs at http://localhost:8000/docs
+# Health check: http://localhost:8000/health
 ```
 
 **Installing new packages:**

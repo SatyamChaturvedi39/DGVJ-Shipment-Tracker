@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Config } from '@/constants/config';
 import { getIdToken } from './auth';
-import type { User } from '@/types';
+import type { User, Shipment, StatusEvent, LocationUpdate } from '@/types';
 
 const api = axios.create({
   baseURL: Config.API_BASE_URL,
@@ -17,13 +17,110 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
 export async function verifyToken(firebaseToken: string): Promise<User> {
   const { data } = await api.post('/auth/verify-token', { firebase_token: firebaseToken });
-  return data.user;
+  return data;
 }
+
+// ─── Users ───────────────────────────────────────────────────────────────────
 
 export async function getMe(): Promise<User> {
   const { data } = await api.get('/users/me');
+  return data;
+}
+
+export async function updateMe(payload: { name?: string; company_name?: string }): Promise<User> {
+  const { data } = await api.put('/users/me', payload);
+  return data;
+}
+
+export async function getEmployees(): Promise<User[]> {
+  const { data } = await api.get('/users/employees');
+  return data;
+}
+
+export async function getCustomers(): Promise<User[]> {
+  const { data } = await api.get('/users/customers');
+  return data;
+}
+
+// ─── Shipments ───────────────────────────────────────────────────────────────
+
+export interface CreateShipmentPayload {
+  origin: string;
+  destination: string;
+  transport_mode: 'train' | 'air';
+  transport_number: string;
+  goods_description?: string;
+  pickup_employee_id?: string;
+  delivery_employee_id?: string;
+  eta_date?: string;
+  eta_time?: string;
+  notes?: string;
+  customer_ids: string[];
+}
+
+export async function getShipments(): Promise<Shipment[]> {
+  const { data } = await api.get('/shipments');
+  return data;
+}
+
+export async function getShipment(id: string): Promise<Shipment & { status_events: StatusEvent[] }> {
+  const { data } = await api.get(`/shipments/${id}`);
+  return data;
+}
+
+export async function createShipment(payload: CreateShipmentPayload): Promise<Shipment> {
+  const { data } = await api.post('/shipments', payload);
+  return data;
+}
+
+export async function updateShipment(
+  id: string,
+  payload: Partial<CreateShipmentPayload>
+): Promise<Shipment> {
+  const { data } = await api.put(`/shipments/${id}`, payload);
+  return data;
+}
+
+export async function deleteShipment(id: string): Promise<void> {
+  await api.delete(`/shipments/${id}`);
+}
+
+// ─── Tracking ────────────────────────────────────────────────────────────────
+
+export type ShipmentPhase = 'pickup' | 'transit' | 'delivery' | 'completed';
+
+export async function transitionPhase(
+  shipmentId: string,
+  phase: ShipmentPhase
+): Promise<{ phase: ShipmentPhase }> {
+  const { data } = await api.put(`/shipments/${shipmentId}/phase`, { phase });
+  return data;
+}
+
+export async function addStatusEvent(
+  shipmentId: string,
+  payload: { label: string; description?: string }
+): Promise<StatusEvent> {
+  const { data } = await api.post(`/shipments/${shipmentId}/status-event`, payload);
+  return data;
+}
+
+// ─── Location ────────────────────────────────────────────────────────────────
+
+export async function updateLocation(payload: {
+  shipment_id: string;
+  lat: number;
+  lng: number;
+}): Promise<void> {
+  await api.post('/location/update', payload);
+}
+
+export async function getLatestLocation(shipmentId: string): Promise<LocationUpdate | null> {
+  const { data } = await api.get(`/location/${shipmentId}/latest`);
   return data;
 }
 
