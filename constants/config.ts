@@ -1,12 +1,17 @@
 const DEV = __DEV__;
 
-// EXPO_PUBLIC_DEV_MOCK_AUTH=false  → disables OTP bypass even in Expo Go (use for real-device testing)
-// EXPO_PUBLIC_API_URL              → override backend URL (required when testing on a physical device)
-// EXPO_PUBLIC_WS_URL               → override WebSocket URL (defaults to API_BASE_URL with ws:// scheme)
+// EXPO_PUBLIC_DEV_MOCK_AUTH=false    → disables OTP bypass even in Expo Go (use for real-device testing)
+// EXPO_PUBLIC_API_URL                → dev backend URL (emulator: localhost:8000, physical device: LAN IP)
+// EXPO_PUBLIC_PROD_API_URL           → production backend URL (e.g. https://digvijay-blr.onrender.com)
+// EXPO_PUBLIC_WS_URL / _PROD_WS_URL  → override WebSocket URL (derived from API URL if not set)
 const mockAuthEnv = process.env.EXPO_PUBLIC_DEV_MOCK_AUTH;
 const mockAuthEnabled = DEV && mockAuthEnv !== 'false';
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? (DEV ? 'http://localhost:8000' : 'https://api.digvijayblr.com');
+// In dev: read EXPO_PUBLIC_API_URL (defaults to localhost).
+// In production build: read EXPO_PUBLIC_PROD_API_URL (must be set before running eas build).
+const apiUrl = DEV
+  ? (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000')
+  : (process.env.EXPO_PUBLIC_PROD_API_URL ?? 'https://digvijay-blr.onrender.com');
 
 // Derive WS URL from API URL by replacing http(s):// with ws(s)://
 const derivedWsUrl = apiUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');

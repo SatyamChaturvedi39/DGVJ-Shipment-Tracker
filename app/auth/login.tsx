@@ -71,6 +71,9 @@ export default function LoginScreen() {
           />
         </View>
 
+        {/* Dev-only role selector. Config.DEV_ROLE_SELECTOR is false when
+            EXPO_PUBLIC_DEV_MOCK_AUTH=false, so this block is completely absent
+            in production APK/AAB builds where that env var is not set to true. */}
         {Config.DEV_ROLE_SELECTOR && (
           <View style={styles.devSection}>
             <View style={styles.devBanner}>

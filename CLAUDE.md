@@ -237,20 +237,30 @@ UPDATE users SET role = 'admin' WHERE phone = '+91XXXXXXXXXX';
 ### Environment variable reference (.env)
 
 ```
-# Dev defaults (emulator / fast UI dev):
+# ── Dev: emulator / Expo Go on same machine ──────────────────────────────────
 EXPO_PUBLIC_API_URL=http://localhost:8000
 EXPO_PUBLIC_DEV_MOCK_AUTH=true
 
-# Physical device testing (phone must share Wi-Fi with laptop):
+# ── Dev: physical device on same Wi-Fi ───────────────────────────────────────
 EXPO_PUBLIC_API_URL=http://<YOUR_LAPTOP_LAN_IP>:8000
+EXPO_PUBLIC_DEV_MOCK_AUTH=false     # forces real OTP flow
+
+# ── Production EAS build ─────────────────────────────────────────────────────
+EXPO_PUBLIC_PROD_API_URL=https://digvijay-blr.onrender.com
+EXPO_PUBLIC_PROD_WS_URL=wss://digvijay-blr.onrender.com
 EXPO_PUBLIC_DEV_MOCK_AUTH=false
 ```
 
 After changing `.env`, always restart with `npx expo start --clear` — env vars are inlined at bundle time.
 
+**How dev vs prod URL is selected (`constants/config.ts`):**
+- `__DEV__ === true` (Expo Go / dev build) → uses `EXPO_PUBLIC_API_URL`
+- `__DEV__ === false` (EAS production/preview build) → uses `EXPO_PUBLIC_PROD_API_URL`
+- WS URL is derived automatically by replacing `http://` → `ws://` unless overridden.
+
 ---
 
-## 6-phase build plan
+## Build phases
 
 | Phase | Status | What |
 |-------|--------|------|
@@ -260,6 +270,53 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 4 | ✅ DONE | Employee screens (my-jobs, job-detail) + live GPS tracking |
 | 5 | ✅ DONE | Customer screens + tracking UI (live map for pickup/delivery phases) |
 | 6 | ✅ DONE | Testing: 30 pytest tests green, 0 TypeScript errors, integration check script, manual test comments |
+| 7 | ✅ DONE | Polish + production deployment: Render config, EAS build, env var cleanup, v1.0.0 tag |
+
+---
+
+## Deployment
+
+### Backend — Render.com
+
+1. Push repo to GitHub (backend/ folder included).
+2. Go to render.com → New → Web Service → connect repo.
+3. Set **Root Directory** to `backend`.
+4. Render auto-detects `render.yaml` — build/start commands are pre-filled.
+5. Add these env vars in Render Dashboard → Environment:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_KEY`
+   - `FIREBASE_PROJECT_ID`
+6. Upload `firebase-service-account.json` as a Secret File (Render Dashboard → Secret Files) at path `./firebase-service-account.json`.
+7. Deploy. Live URL will be `https://digvijay-blr-api.onrender.com` (or similar).
+8. Set `EXPO_PUBLIC_PROD_API_URL=https://<your-render-url>` before building the APK.
+
+**Procfile** and **render.yaml** are both present in `backend/` — either will work.
+
+### Frontend — EAS Build (Android APK)
+
+**One-time setup:**
+```bash
+npm install -g eas-cli
+eas login          # sign in with your Expo account
+eas build:configure
+```
+
+**Build preview APK (internal distribution):**
+```bash
+# Set production URL in .env first:
+# EXPO_PUBLIC_PROD_API_URL=https://<your-render-url>
+# EXPO_PUBLIC_DEV_MOCK_AUTH=false
+npx expo start --clear   # verify env vars are picked up
+eas build --profile preview --platform android
+```
+This produces a `.apk` you can install directly on any Android device.
+
+**Build production AAB (Play Store submission):**
+```bash
+eas build --profile production --platform android
+```
+
+**Do NOT run eas build** unless you have an Expo account and are ready to submit — it queues on Expo's cloud servers and uses build minutes.
 
 ---
 
@@ -295,22 +352,27 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 
 ---
 
-## What's real vs placeholder (as of Phase 4)
+## What's real vs placeholder (as of Phase 7 / v1.0.0)
 
 | Thing | State |
 |-------|-------|
 | Firebase config | Real keys in .env (EXPO_PUBLIC_FIREBASE_*) |
 | Firebase Admin SDK | Needs firebase-service-account.json in /backend |
-| All backend API endpoints | Fully implemented, connected to Supabase |
-| WebSocket /ws/{shipment_id} | Fully implemented with ConnectionManager |
+| All backend API endpoints | ✅ Fully implemented, connected to Supabase |
+| WebSocket /ws/{shipment_id} | ✅ Fully implemented with ConnectionManager |
 | Admin screens (all 4) | ✅ Fully implemented — Phase 3 complete |
 | Employee my-jobs screen | ✅ Fully implemented — Phase 4 complete |
 | Employee job-detail screen | ✅ Fully implemented — Phase 4 complete |
-| Customer my-shipments screen    | ✅ Fully implemented — Phase 5 complete |
+| Customer my-shipments screen | ✅ Fully implemented — Phase 5 complete |
 | Customer shipment-tracking screen | ✅ Fully implemented — Phase 5 complete |
-| Customer profile screen         | ✅ Fully implemented — Phase 5 complete |
+| Customer profile screen | ✅ Fully implemented — Phase 5 complete |
 | expo-location | ✅ Installed (~19.0.8), plugin added to app.json |
 | react-native-maps | ✅ Installed (SDK 54 compatible), plugin added to app.json |
+| Google Maps API key | PLACEHOLDER — replace before production build |
+| backend/render.yaml | ✅ Created — deploy by connecting repo to Render.com |
+| eas.json | ✅ Created — preview (APK) and production (AAB) profiles ready |
+| app.json package name | com.digvijayexpress.blr, versionCode 1, version 1.0.0 |
+| Splash screen | ✅ Brand red (#C62828) background |
 
 ---
 
@@ -470,6 +532,17 @@ Created at repo root — summary of all automated results + manual test checklis
 
 ---
 
+## Future improvements (post-v1.0.0)
+
+- **Real Firebase OTP on physical device** — Switch to `@react-native-firebase` (EAS Build with native modules). Firebase JS SDK's `fakeRecaptchaVerifier` only works with Firebase test phone numbers.
+- **Google Maps API key for production** — Replace `PLACEHOLDER` values in `app.json` with a real key from Google Cloud Console. MapView in Expo Go dev mode does not need a key.
+- **Employee phase transitions in production** — Change `require_role("admin")` → `require_role("admin", "employee")` in `backend/routes/tracking.py` and add ownership checks.
+- **Push notifications** — Send status-change notifications to customers via Expo Push Notifications or Firebase FCM.
+- **Train/flight API integration** — Auto-populate transport status from IRCTC/airline APIs (Phase 2 of product roadmap).
+- **Role management UI** — Admin screen to assign employee/customer roles instead of using SQL.
+
+---
+
 ## Firebase Admin SDK setup (required for production OTP)
 
 1. Firebase Console → Project Settings → Service accounts
@@ -511,6 +584,34 @@ venv\Scripts\activate
 uvicorn main:app --reload
 ```
 
+**Run backend tests:**
+```bash
+cd backend
+venv\Scripts\activate
+pytest tests/ -v
+# Expected: 30/30 pass
+```
+
+**Run integration check (requires backend running):**
+```bash
+python backend/tests/integration_check.py
+```
+
+**Build Android APK (preview/internal distribution):**
+```bash
+# 1. Install EAS CLI once:
+npm install -g eas-cli
+eas login
+
+# 2. Set production env vars in .env:
+#    EXPO_PUBLIC_PROD_API_URL=https://<your-render-url>
+#    EXPO_PUBLIC_DEV_MOCK_AUTH=false
+
+# 3. Build:
+eas build --profile preview --platform android
+# Downloads a .apk you can sideload on any Android device
+```
+
 **Installing new packages:**
 ```bash
 # Expo-managed packages:
@@ -519,3 +620,31 @@ npx expo install <package> -- --legacy-peer-deps
 # Other npm packages:
 npm install <package> --legacy-peer-deps
 ```
+
+---
+
+## Key implementation notes (from Phase 7)
+
+### URL config (constants/config.ts)
+- Dev builds (`__DEV__ === true`): uses `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`)
+- Production builds (`__DEV__ === false`): uses `EXPO_PUBLIC_PROD_API_URL` (default `https://digvijay-blr.onrender.com`)
+- WS URL auto-derived by swapping `http://` → `ws://`; override with `EXPO_PUBLIC_WS_URL` / `EXPO_PUBLIC_PROD_WS_URL`
+
+### Dev mode guard in login.tsx
+- The role-selector block is wrapped in `{Config.DEV_ROLE_SELECTOR && (...)}`.
+- `Config.DEV_ROLE_SELECTOR` is `false` when `EXPO_PUBLIC_DEV_MOCK_AUTH` is not `true`.
+- Production EAS builds (where `DEV_MOCK_AUTH` is unset or `false`) will never render the bypass UI.
+
+### EAS build profiles (eas.json)
+- `development` — dev client build for testing with Expo Dev Tools
+- `preview` — internal APK distribution; use this to share the app before Play Store
+- `production` — AAB for Google Play Store submission
+
+### Backend Render.com deployment files
+- `backend/render.yaml` — declarative config auto-detected by Render on first deploy
+- `backend/Procfile` — fallback; same start command
+- CORS is `allow_origins=["*"]` — acceptable for now; tighten after confirming production domain
+
+### app.json changes (Phase 7)
+- `android.versionCode: 1` — required for Play Store; increment on each APK/AAB release
+- `splash.backgroundColor` changed from `#1B2A4A` → `#C62828` (brand red) for consistent branding
