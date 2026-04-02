@@ -2,12 +2,22 @@ import {
   signInWithPhoneNumber,
   signOut as firebaseSignOut,
   ConfirmationResult,
+  ApplicationVerifier,
 } from 'firebase/auth';
 import { auth } from './firebase';
 import { Config } from '@/constants/config';
 
 let confirmationResult: ConfirmationResult | null = null;
 let mockPhone: string | null = null;
+
+// Firebase test phone numbers bypass real reCAPTCHA validation on the server.
+// This minimal verifier satisfies the SDK's type requirement without needing a DOM.
+// Only works with numbers registered under Firebase Console → Authentication →
+// Sign-in method → Phone → Phone numbers for testing.
+const fakeRecaptchaVerifier: ApplicationVerifier = {
+  type: 'recaptcha',
+  verify: () => Promise.resolve('fake-recaptcha-token'),
+};
 
 export async function sendOTP(phoneNumber: string): Promise<void> {
   if (Config.DEV_MOCK_AUTH) {
@@ -16,16 +26,8 @@ export async function sendOTP(phoneNumber: string): Promise<void> {
   }
 
   // phoneNumber must include country code, e.g. +919876543210
-  // RecaptchaVerifier is required for web-based Firebase Phone Auth.
-  // For Expo managed workflow use expo-dev-client with @react-native-firebase,
-  // or implement a custom RecaptchaVerifier for the JS SDK.
-  // See: https://firebase.google.com/docs/auth/web/phone-auth
   try {
-    // NOTE: replace `recaptchaVerifier` with a real ApplicationVerifier instance
-    // confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-    throw new Error(
-      'RecaptchaVerifier not yet configured. Set up expo-dev-client or implement ApplicationVerifier.'
-    );
+    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, fakeRecaptchaVerifier);
   } catch (e: any) {
     console.error('[Firebase] sendOTP failed:', e?.message ?? e);
     throw e;

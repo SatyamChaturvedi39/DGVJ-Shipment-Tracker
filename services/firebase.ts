@@ -9,12 +9,13 @@ import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/aut
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyDJmoDva7xbAWzFtmIog_G6CzHgb8buyDk',
+  authDomain: 'dvgj-shipment-tracker.firebaseapp.com',
+  projectId: 'dvgj-shipment-tracker',
+  storageBucket: 'dvgj-shipment-tracker.firebasestorage.app',
+  messagingSenderId: '826777981400',
+  appId: '1:826777981400:web:1326801ce977b2507762ad',
+  measurementId: 'G-G60M8YKTJG',
 };
 
 // Singleton pattern — only initialize once across hot reloads
