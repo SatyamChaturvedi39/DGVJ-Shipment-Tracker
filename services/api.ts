@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Config } from '@/constants/config';
 import { getIdToken } from './auth';
-import type { User, Shipment, StatusEvent, LocationUpdate } from '@/types';
+import type { User, Shipment, ShipmentDetail, StatusEvent, LocationUpdate } from '@/types';
 
 const api = axios.create({
   baseURL: Config.API_BASE_URL,
@@ -67,7 +67,7 @@ export async function getShipments(): Promise<Shipment[]> {
   return data;
 }
 
-export async function getShipment(id: string): Promise<Shipment & { status_events: StatusEvent[] }> {
+export async function getShipment(id: string): Promise<ShipmentDetail> {
   const { data } = await api.get(`/shipments/${id}`);
   return data;
 }

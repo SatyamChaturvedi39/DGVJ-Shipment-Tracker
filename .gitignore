@@ -38,6 +38,7 @@ yarn-error.*
 __pycache__/
 *.pyc
 backend/.venv/
+backend/venv/
 backend/.env
 backend/firebase-service-account.json
 

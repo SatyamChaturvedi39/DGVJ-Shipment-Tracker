@@ -49,6 +49,14 @@ export default function AdminLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>&#9776;</Text>,
         }}
       />
+      <Tabs.Screen
+        name="shipment-detail"
+        options={{
+          title: 'Shipment Details',
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }

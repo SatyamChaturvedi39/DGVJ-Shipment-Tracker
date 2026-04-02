@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inputError: {
-    borderColor: Colors.danger,
+    borderColor: Colors.error,
   },
   prefix: {
     fontSize: 16,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: 12,
-    color: Colors.danger,
+    color: Colors.error,
     marginTop: 4,
   },
 });

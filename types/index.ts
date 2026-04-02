@@ -25,11 +25,17 @@ export interface Shipment {
   transport_number: string;
   origin: string;
   destination: string;
+  goods_description: string | null;
   eta_date: string;
   eta_time: string;
   notes: string | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface ShipmentDetail extends Shipment {
+  status_events: StatusEvent[];
+  customer_ids: string[];
 }
 
 export interface ShipmentPermission {

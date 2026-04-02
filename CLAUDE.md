@@ -58,7 +58,7 @@ Auth: Firebase Phone OTP for all roles. No passwords. Role is stored in the DB a
 users:               id, phone, name, role, company_name, firebase_uid, created_at
 shipments:           id, tracking_id, status, current_phase, pickup_employee_id,
                      delivery_employee_id, transport_mode, transport_number,
-                     origin, destination, eta_date, eta_time, notes,
+                     origin, destination, eta_date, eta_time, notes, goods_description,
                      created_at, completed_at
 shipment_permissions: shipment_id, customer_user_id
 location_updates:    id, shipment_id, employee_id, lat, lng, timestamp
@@ -79,7 +79,7 @@ companies:           id, name, contact_phone
 | delivery | Live map | Employee 2 (delivery driver) |
 | completed | Summary | None |
 
-Admin manually triggers phase transitions.
+Admin manually triggers phase transitions. Phase order: `pickup → transit → delivery → completed`
 
 ---
 
@@ -104,6 +104,8 @@ textMuted:       #757575  (alias for textSecondary)
 inputBg:         #F5F5F5  (alias for surface)
 ```
 
+**Important:** Only use color keys that exist above. `Colors.accent` and `Colors.danger` do NOT exist — use `Colors.primary` and `Colors.error` respectively.
+
 ---
 
 ## Folder structure
@@ -118,62 +120,100 @@ app/
     verify.tsx             # OTP input (6 boxes) + resend timer
   (admin)/
     _layout.tsx            # Admin tab navigator (auth guard: role === 'admin')
-    dashboard.tsx
-    create-shipment.tsx
-    archive.tsx
+    dashboard.tsx          # ✅ Phase 3 — shipment list, stats, pull-to-refresh
+    create-shipment.tsx    # ✅ Phase 3 — full form, train/air toggle, employee picker
+    archive.tsx            # ✅ Phase 3 — completed shipments, search bar
+    shipment-detail.tsx    # ✅ Phase 3 — detail view, timeline, phase transitions, status events
   (employee)/
     _layout.tsx            # Employee tab navigator (auth guard: role === 'employee')
-    my-jobs.tsx
+    my-jobs.tsx            # ⬜ Phase 4 — currently PlaceholderScreen
   (customer)/
     _layout.tsx            # Customer tab navigator (auth guard: role === 'customer')
-    my-shipments.tsx
+    my-shipments.tsx       # ⬜ Phase 5 — currently PlaceholderScreen
 components/
   ui/
     Button.tsx             # primary/secondary/outline/danger variants, 52px height
     Input.tsx              # labeled input with error state, prefix support
     OTPInput.tsx           # 6 digit boxes, hidden TextInput underneath
     Card.tsx               # white surface, shadow, 16px radius
-    LoadingSpinner.tsx     # centered ActivityIndicator
+    LoadingSpinner.tsx     # centered ActivityIndicator (uses Colors.primary)
   PlaceholderScreen.tsx    # role badge + screen name + sign out (used until real screens built)
 services/
   firebase.ts              # Firebase init with AsyncStorage persistence
   auth.ts                  # sendOTP, verifyOTP, signOut + DEV_MOCK_AUTH
-  api.ts                   # Axios instance with token interceptor
+  api.ts                   # Axios instance with token interceptor + all API functions
 context/
   AuthContext.tsx           # user, isLoading, login, verifyOTP, logout, setDevRole
 hooks/
   useAuth.ts               # useContext(AuthContext) wrapper
 types/
-  index.ts                 # User, UserRole, Shipment, ShipmentPhase, StatusEvent, LocationUpdate
+  index.ts                 # User, UserRole, Shipment, ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate
 constants/
   colors.ts                # Color palette (see above)
-  config.ts                # API_BASE_URL, DEV_MOCK_AUTH flag
+  config.ts                # API_BASE_URL, DEV_MOCK_AUTH, DEV_ROLE_SELECTOR flags
 backend/
   main.py                  # FastAPI app with CORS
+  database.py              # Supabase client singleton
+  dependencies.py          # get_current_user, require_role()
   requirements.txt
+  .env                     # SUPABASE_URL, SUPABASE_SERVICE_KEY, FIREBASE_PROJECT_ID
+  firebase-service-account.json  # gitignored — download from Firebase Console
+  migrations/
+    001_initial.sql        # Paste into Supabase SQL Editor to create all tables
   models/
-    user.py                # UserBase, UserCreate, UserResponse (Pydantic)
-    shipment.py            # ShipmentBase, ShipmentCreate, ShipmentResponse
+    user.py                # UserResponse, UpdateProfileRequest
+    shipment.py            # CreateShipmentRequest, UpdateShipmentRequest, etc.
   routes/
-    auth.py                # POST /auth/verify-token (mock for now)
-    users.py               # GET /users/me (mock for now)
+    auth.py                # POST /auth/verify-token
+    users.py               # GET /users/me, PUT /users/me, GET /users/employees|customers
+    shipments.py           # Full CRUD: POST/GET/GET{id}/PUT/DELETE /shipments
+    tracking.py            # PUT /shipments/{id}/phase, POST /shipments/{id}/status-event
+                           # POST /location/update, GET /location/{id}/latest
   websocket/
-    handler.py             # Placeholder for GPS WebSocket (Phase 2)
+    manager.py             # ConnectionManager singleton — broadcast to shipment watchers
+    handler.py             # WS /ws/{shipment_id} endpoint
 ```
 
 ---
 
 ## Dev mode
 
-`constants/config.ts` exports `Config.DEV_MOCK_AUTH = __DEV__`.
+`constants/config.ts` controls dev mode via environment variables — **NOT hardcoded `__DEV__`**.
 
-When enabled:
+```ts
+const mockAuthEnv = process.env.EXPO_PUBLIC_DEV_MOCK_AUTH;
+const mockAuthEnabled = DEV && mockAuthEnv !== 'false';
+
+export const Config = {
+  API_BASE_URL: process.env.EXPO_PUBLIC_API_URL ?? (DEV ? 'http://localhost:8000' : '...'),
+  DEV_MOCK_AUTH: mockAuthEnabled,
+  DEV_ROLE_SELECTOR: mockAuthEnabled,   // controls visibility of role buttons on login screen
+};
+```
+
+**Critical:** Always use `Config.DEV_ROLE_SELECTOR` (not `__DEV__`) to gate dev-only UI. `__DEV__` is ALWAYS true in Expo Go regardless of env vars.
+
+When dev mode is enabled (`EXPO_PUBLIC_DEV_MOCK_AUTH=true`, the default):
 - Login screen shows "DEV MODE — Select Role" buttons at the bottom
 - Tapping Admin/Employee/Customer bypasses OTP and logs in immediately
 - OTP flow still works: any phone + code `123456` succeeds
 - API calls use `http://localhost:8000`
 
-**Do not remove dev mode** — it's essential for building UI without a real Firebase project.
+**Do not remove dev mode** — it's essential for building UI without a real device.
+
+### Environment variable reference (.env)
+
+```
+# Dev defaults (emulator / fast UI dev):
+EXPO_PUBLIC_API_URL=http://localhost:8000
+EXPO_PUBLIC_DEV_MOCK_AUTH=true
+
+# Physical device testing (phone must share Wi-Fi with laptop):
+EXPO_PUBLIC_API_URL=http://<YOUR_LAPTOP_LAN_IP>:8000
+EXPO_PUBLIC_DEV_MOCK_AUTH=false
+```
+
+After changing `.env`, always restart with `npx expo start --clear` — env vars are inlined at bundle time.
 
 ---
 
@@ -183,14 +223,38 @@ When enabled:
 |-------|--------|------|
 | 1 | ✅ DONE | Project setup, Firebase OTP auth, role-based navigation skeleton |
 | 2 | ✅ DONE | FastAPI backend, Supabase schema, all API endpoints, WebSocket server |
-| 3 | ⬜ NEXT | Admin dashboard screens |
-| 4 | ⬜ | Employee screens + live GPS |
+| 3 | ✅ DONE | All 4 Admin screens (dashboard, create-shipment, archive, shipment-detail) |
+| 4 | ⬜ NEXT | Employee screens + live GPS (+ fix known issues below first) |
 | 5 | ⬜ | Customer screens + tracking UI |
 | 6 | ⬜ | Polish, testing, deployment |
 
 ---
 
-## What's real vs placeholder (as of Phase 2)
+## Known issues to fix before / during Phase 4
+
+These problems exist but were deferred — address them before building on top:
+
+### 1. Real OTP does not work on physical device
+- **Root cause:** Firebase JS SDK's `fakeRecaptchaVerifier` only works with Firebase test phone numbers. Real phone numbers with real OTP require `@react-native-firebase` (native build) or a server-side SMS gateway.
+- **Current workaround:** Use dev mode role selector (`EXPO_PUBLIC_DEV_MOCK_AUTH=true`) to bypass OTP entirely during development.
+- **To fix for production:** Either (a) set up Firebase test phone numbers in Firebase Console for testing, or (b) switch to `@react-native-firebase` when doing a custom dev build (EAS Build).
+
+### 2. New users are always created as 'customer' role
+- **Root cause:** `backend/routes/auth.py` `POST /auth/verify-token` inserts all new users with `role: 'customer'` hardcoded.
+- **To fix:** Change the endpoint to accept a `role` param (admin-only), OR fix the default to look up an invite/whitelist table, OR manually update roles in Supabase SQL Editor: `UPDATE users SET role = 'admin' WHERE phone = '+91XXXXXXXXXX';`
+
+### 3. `EXPO_PUBLIC_API_URL` must be set for physical device
+- Phone cannot reach `localhost:8000` — must use laptop's LAN IP.
+- Already handled by config.ts reading from env var.
+- Action: Set in `.env` when testing on device, reset to `localhost:8000` for emulator dev.
+
+### 4. Backend must bind to 0.0.0.0 for LAN access
+- Default `uvicorn main:app --reload` binds to `127.0.0.1` (localhost only).
+- For physical device testing: `uvicorn main:app --reload --host 0.0.0.0`
+
+---
+
+## What's real vs placeholder (as of Phase 3)
 
 | Thing | State |
 |-------|-------|
@@ -198,36 +262,41 @@ When enabled:
 | Firebase Admin SDK | Needs firebase-service-account.json in /backend |
 | All backend API endpoints | Fully implemented, connected to Supabase |
 | WebSocket /ws/{shipment_id} | Fully implemented with ConnectionManager |
-| All role screens (dashboard, jobs, shipments) | PlaceholderScreen component — Phase 3+ |
+| Admin screens (all 4) | ✅ Fully implemented — Phase 3 complete |
+| Employee screen (my-jobs) | PlaceholderScreen — Phase 4 |
+| Customer screen (my-shipments) | PlaceholderScreen — Phase 5 |
 | react-native-maps | Installed but not yet used — Phase 4/5 |
 
 ---
 
-## Backend file structure (Phase 2)
+## Key implementation notes (from Phase 3)
 
+### Admin detail screen navigation (Expo Router v6)
+`shipment-detail` lives as a hidden tab screen (not in the tab bar):
+```tsx
+<Tabs.Screen
+  name="shipment-detail"
+  options={{
+    title: 'Shipment Details',
+    href: null,                        // hides from tab bar
+    tabBarStyle: { display: 'none' },  // hides tab bar when active
+  }}
+/>
 ```
-backend/
-  main.py              # FastAPI app, CORS, router includes, startup message
-  database.py          # Supabase client singleton (uses SUPABASE_SERVICE_KEY)
-  dependencies.py      # get_current_user, require_role() — Firebase token verification
-  requirements.txt
-  .env                 # SUPABASE_URL, SUPABASE_SERVICE_KEY, FIREBASE_PROJECT_ID
-  firebase-service-account.json  # gitignored — download from Firebase Console
-  migrations/
-    001_initial.sql    # Paste into Supabase SQL Editor to create all tables
-  models/
-    user.py            # UserResponse, UpdateProfileRequest
-    shipment.py        # CreateShipmentRequest, UpdateShipmentRequest, etc.
-  routes/
-    auth.py            # POST /auth/verify-token
-    users.py           # GET /users/me, PUT /users/me, GET /users/employees|customers
-    shipments.py       # Full CRUD: POST/GET/GET{id}/PUT/DELETE /shipments
-    tracking.py        # PUT /shipments/{id}/phase, POST /shipments/{id}/status-event
-                       # POST /location/update, GET /location/{id}/latest
-  websocket/
-    manager.py         # ConnectionManager singleton — broadcast to shipment watchers
-    handler.py         # WS /ws/{shipment_id} endpoint
+Navigate to it via: `router.push('/(admin)/shipment-detail?id=${shipment.id}')`
+Read the param via: `useLocalSearchParams<{ id: string }>()`
+
+**Do NOT use `href` and `tabBarButton` together** — Expo Router v6 throws a render error.
+
+### Phase badge colors
 ```
+pickup:    bg #FFF8E1, text #F57F17  (amber)
+transit:   bg #E3F2FD, text #1565C0  (blue)
+delivery:  bg #FFF8E1, text #F57F17  (amber)
+completed: bg #E8F5E9, text #2E7D32  (green)
+```
+
+---
 
 ## Firebase Admin SDK setup (required for production OTP)
 
@@ -236,23 +305,38 @@ backend/
 3. Save as `backend/firebase-service-account.json` (gitignored)
 4. Backend auto-detects it on startup
 
+---
+
 ## How to run
 
 **Frontend:**
 ```bash
 cd C:/SattyGithub/DGVJ-Shipment-Tracker
-npx expo start
+npx expo start --clear
 # Scan QR with Expo Go on Android
-# Use Dev Mode role selector to bypass OTP
+# Use Dev Mode role selector to bypass OTP (default: enabled)
 ```
 
-**Backend:**
+**Backend (first-time setup):**
 ```bash
 cd backend
+python -m venv venv
+
+# Activate on Windows:
+venv\Scripts\activate
+
 pip install -r requirements.txt
 uvicorn main:app --reload
 # Docs at http://localhost:8000/docs
 # Health check: http://localhost:8000/health
+# For physical device access: uvicorn main:app --reload --host 0.0.0.0
+```
+
+**Backend (subsequent runs — venv already created):**
+```bash
+cd backend
+venv\Scripts\activate
+uvicorn main:app --reload
 ```
 
 **Installing new packages:**

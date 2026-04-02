@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-na
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import { Config } from '@/constants/config';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,7 +71,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        {__DEV__ && (
+        {Config.DEV_ROLE_SELECTOR && (
           <View style={styles.devSection}>
             <View style={styles.devBanner}>
               <Text style={styles.devBannerText}>DEV ONLY — Remove before release</Text>
