@@ -258,8 +258,8 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 2 | ✅ DONE | FastAPI backend, Supabase schema, all API endpoints, WebSocket server |
 | 3 | ✅ DONE | All 4 Admin screens (dashboard, create-shipment, archive, shipment-detail) |
 | 4 | ✅ DONE | Employee screens (my-jobs, job-detail) + live GPS tracking |
-| 5 | ⬜ NEXT | Customer screens + tracking UI (live map for pickup/delivery phases) |
-| 6 | ⬜ | Polish, testing, deployment |
+| 5 | ✅ DONE | Customer screens + tracking UI (live map for pickup/delivery phases) |
+| 6 | ⬜ NEXT | Polish, testing, deployment |
 
 ---
 
@@ -306,9 +306,11 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | Admin screens (all 4) | ✅ Fully implemented — Phase 3 complete |
 | Employee my-jobs screen | ✅ Fully implemented — Phase 4 complete |
 | Employee job-detail screen | ✅ Fully implemented — Phase 4 complete |
-| Customer screen (my-shipments) | PlaceholderScreen — Phase 5 |
+| Customer my-shipments screen    | ✅ Fully implemented — Phase 5 complete |
+| Customer shipment-tracking screen | ✅ Fully implemented — Phase 5 complete |
+| Customer profile screen         | ✅ Fully implemented — Phase 5 complete |
 | expo-location | ✅ Installed (~19.0.8), plugin added to app.json |
-| react-native-maps | Installed but not yet used — Phase 5 |
+| react-native-maps | ✅ Installed (SDK 54 compatible), plugin added to app.json |
 
 ---
 
@@ -384,6 +386,45 @@ In `app/(employee)/_layout.tsx`, the employee's name is shown in the My Jobs tab
 headerRight: () => <EmployeeName name={user.name ?? 'Employee'} />,
 ```
 The `user` object comes from `useAuth()` in the layout component (already read for auth guard).
+
+---
+
+## Key implementation notes (from Phase 5)
+
+### Customer screen structure
+- `app/(customer)/_layout.tsx` — 2 tabs (My Shipments, Profile) + `shipment-tracking` as hidden screen
+- `app/(customer)/my-shipments.tsx` — list with search bar; navigates to `shipment-tracking?id=`
+- `app/(customer)/shipment-tracking.tsx` — main tracking screen (map, timeline, transit card)
+- `app/(customer)/profile.tsx` — editable name + company, read-only phone, sign out
+
+### WS_BASE_URL in config.ts
+`Config.WS_BASE_URL` is derived automatically from `API_BASE_URL` by replacing `http://` → `ws://`
+and `https://` → `wss://`. Override via `EXPO_PUBLIC_WS_URL` env var if needed.
+
+### react-native-maps integration
+- Installed via `npx expo install react-native-maps -- --legacy-peer-deps`
+- Plugin added to `app.json` with `PLACEHOLDER` API keys (replace with real keys before production build)
+- iOS and Android `config.googleMaps*` keys also set to `PLACEHOLDER`
+- MapView renders in Expo Go on Android without a key in dev mode
+
+### Customer shipment-tracking.tsx sections
+1. **Dark header card** — tracking ID, status label, 4-step phase progress dots (red filled/pulsing/gray)
+2. **ETA card** (white) — large date + time; replaced by green "Delivered" card when completed
+3. **Live tracking** (pickup/delivery phase) — `react-native-maps` MapView 220px, auto-refreshes location every 10s, WebSocket updates marker in real-time
+4. **Transit card** (transit phase) — large train/plane icon, transport number, admin status events shown as mini-timeline
+5. **Status timeline** — all events with green checkmarks (done), red pulsing (current), gray (pending)
+6. **Expandable details** — tap to reveal origin/destination/transport/goods/notes
+
+### WebSocket in shipment-tracking.tsx
+- Opens `ws://<WS_BASE_URL>/ws/<shipment_id>` on mount, closes on unmount
+- `phase_change` and `status_update` → calls `load()` to re-fetch full shipment
+- `location` messages → handled inside `LiveMapSection` component via a shared `wsRef`
+- WS errors are silently swallowed (REST polling handles updates as fallback)
+
+### Location polling in LiveMapSection
+- `getLatestLocation(shipmentId)` called on mount + every 10 seconds via `setInterval`
+- If API returns null → shows placeholder card "Tracking will begin when driver starts their journey"
+- Map region delta: 0.01 (street level)
 
 ---
 
