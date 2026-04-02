@@ -2,20 +2,19 @@
 // 1. Enable Phone Authentication in Firebase Console → Authentication → Sign-in method
 // 2. Add your Android SHA-1 fingerprint in Firebase Console → Project Settings → Your apps → Android app
 //    (see .env.example for how to get your SHA-1)
-// 3. Replace the placeholder config values below with your real Firebase project config
+// 3. Fill in all EXPO_PUBLIC_FIREBASE_* values in your .env file
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyDJmoDva7xbAWzFtmIog_G6CzHgb8buyDk',
-  authDomain: 'dvgj-shipment-tracker.firebaseapp.com',
-  projectId: 'dvgj-shipment-tracker',
-  storageBucket: 'dvgj-shipment-tracker.firebasestorage.app',
-  messagingSenderId: '826777981400',
-  appId: '1:826777981400:web:1326801ce977b2507762ad',
-  measurementId: 'G-G60M8YKTJG',
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
 };
 
 // Singleton pattern — only initialize once across hot reloads
