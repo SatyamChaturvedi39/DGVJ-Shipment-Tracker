@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/services/firebase';
 import { sendOTP, verifyOTP as verifyOTPService, signOut as signOutService, getMockPhone } from '@/services/auth';
+import { getMe } from '@/services/api';
 import { Config } from '@/constants/config';
 import type { User, UserRole } from '@/types';
 
@@ -37,6 +38,20 @@ function createMockUser(phone: string, role: UserRole): User {
   };
 }
 
+function createUserFromFirebase(firebaseUser: { uid: string; phoneNumber: string | null }): User {
+  // Phase 1 fallback — role will come from Supabase in Phase 2.
+  // Defaults to 'customer' so any verified phone number can enter the app.
+  return {
+    id: firebaseUser.uid,
+    phone: firebaseUser.phoneNumber ?? '',
+    name: 'User',
+    role: 'customer',
+    company_name: null,
+    firebase_uid: firebaseUser.uid,
+    created_at: new Date().toISOString(),
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +65,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // In production, fetch user profile from backend
-        // const profile = await getMe();
-        // setUser(profile);
+        try {
+          // Fetch role from backend (Phase 2 will have real Supabase data)
+          const profile = await getMe();
+          setUser(profile);
+        } catch {
+          // Backend not running — fall back to a basic user derived from Firebase
+          setUser(createUserFromFirebase(firebaseUser));
+        }
       } else {
         setUser(null);
       }
@@ -69,7 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const verifyOTP = useCallback(async (code: string) => {
     await verifyOTPService(code);
-    // In dev mock mode, user is set via setDevRole after OTP verification
+    // onAuthStateChanged fires automatically after successful verification
+    // and sets the user — no manual setUser needed here
   }, []);
 
   const logout = useCallback(async () => {

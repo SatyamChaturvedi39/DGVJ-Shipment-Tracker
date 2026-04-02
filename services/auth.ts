@@ -14,9 +14,10 @@ let mockPhone: string | null = null;
 // This minimal verifier satisfies the SDK's type requirement without needing a DOM.
 // Only works with numbers registered under Firebase Console → Authentication →
 // Sign-in method → Phone → Phone numbers for testing.
-const fakeRecaptchaVerifier: ApplicationVerifier = {
+const fakeRecaptchaVerifier: ApplicationVerifier & { _reset?: () => void } = {
   type: 'recaptcha',
   verify: () => Promise.resolve('fake-recaptcha-token'),
+  _reset: () => {},
 };
 
 export async function sendOTP(phoneNumber: string): Promise<void> {
