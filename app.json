@@ -47,12 +47,6 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Digvijay BLR needs your location to track shipment delivery."
         }
-      ],
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": "PLACEHOLDER"
-        }
       ]
     ]
   }

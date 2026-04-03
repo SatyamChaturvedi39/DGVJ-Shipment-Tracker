@@ -272,6 +272,7 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 6 | ✅ DONE | Testing: 30 pytest tests green, 0 TypeScript errors, integration check script, manual test comments |
 | 7 | ✅ DONE | Polish + production deployment: Render config, EAS build, env var cleanup, v1.0.0 tag |
 | 8 | ✅ DONE | Closed auth system + admin user management Team screen |
+| 9 | ⏳ NEXT | Deploy backend to Render.com + test on real device via Render URL |
 
 ---
 
@@ -339,14 +340,24 @@ eas build --profile production --platform android
 - **Current state:** In `job-detail.tsx`, location updates are skipped when `Config.DEV_MOCK_AUTH` is true. GPS UI (watcher, coordinates display) works normally.
 - **To fix for production:** No code change needed — real employee tokens will pass the role check.
 
-### 5. `EXPO_PUBLIC_API_URL` must be set for physical device
-- Phone cannot reach `localhost:8000` — must use laptop's LAN IP.
-- Already handled by config.ts reading from env var.
-- Action: Set in `.env` when testing on device, reset to `localhost:8000` for emulator dev.
+### 5. Local network connectivity between phone and laptop
+- Windows hotspot and most Wi-Fi routers block device-to-device (phone→laptop) traffic (AP Isolation / ICS firewall).
+- **Workaround A — ADB reverse (USB cable, no network needed):**
+  1. Enable USB Debugging on phone (Settings → Developer Options)
+  2. Connect USB cable; run: `C:\platform-tools\adb.exe reverse tcp:8000 tcp:8000`
+  3. Set `.env`: `EXPO_PUBLIC_API_URL=http://localhost:8000`
+  4. `npx expo start --clear` then press `a` in terminal
+- **Workaround B (permanent) — Deploy to Render.com:** Use the deployed backend URL. No local network issues. See Deployment section.
+- **Dev mock token requires an admin user in Supabase** — the backend looks for `role='admin'`. Admin user for this project: `+919663469507` (already inserted). If DB is reset, re-run: `INSERT INTO users (phone, name, role, is_active) VALUES ('+919663469507', 'Admin', 'admin', true);`
 
 ### 6. Backend must bind to 0.0.0.0 for LAN access
 - Default `uvicorn main:app --reload` binds to `127.0.0.1` (localhost only).
 - For physical device testing: `uvicorn main:app --reload --host 0.0.0.0`
+
+### 7. react-native-maps plugin removed from app.json
+- v1.20.1 has no `app.plugin.js` — adding it to `plugins` crashes Expo start.
+- Google Maps API key is set correctly under `android.config.googleMaps.apiKey` in app.json instead.
+- Do NOT re-add `react-native-maps` to the `plugins` array.
 
 ---
 
@@ -365,7 +376,7 @@ eas build --profile production --platform android
 | Customer shipment-tracking screen | ✅ Fully implemented — Phase 5 complete |
 | Customer profile screen | ✅ Fully implemented — Phase 5 complete |
 | expo-location | ✅ Installed (~19.0.8), plugin added to app.json |
-| react-native-maps | ✅ Installed (SDK 54 compatible), plugin added to app.json |
+| react-native-maps | ✅ Installed (SDK 54 compatible), plugin REMOVED from app.json (v1.20.1 has no app.plugin.js) |
 | Google Maps API key | PLACEHOLDER — replace before production build |
 | backend/render.yaml | ✅ Created — deploy by connecting repo to Render.com |
 | eas.json | ✅ Created — preview (APK) and production (AAB) profiles ready |
@@ -689,3 +700,63 @@ Returns all non-admin users ordered by role then name. The Team screen filters c
 ### `is_active` field in User type
 - Added to `types/index.ts` User interface (`is_active: boolean`)
 - `firebase_uid` changed from `string` to `string | null` to accommodate pre-registered users
+
+### Team screen header (`app/(admin)/team.tsx`)
+- `headerShown: false` set on the Team tab in `app/(admin)/_layout.tsx` — Team uses its own custom dark header
+- `SafeAreaView` must use `edges={['top', 'bottom']}` (NOT just `['bottom']`) — otherwise the header renders behind the status bar
+- Sign Out button is in the Team screen's custom header (not the nav header)
+
+### Logout buttons (Phase 8 bugfix)
+- Admin: "Sign Out" button in `screenOptions.headerRight` in `app/(admin)/_layout.tsx` — appears on Dashboard, New Shipment, Archive tabs. Shows confirmation Alert before signing out.
+- Employee: Sign Out button + employee name in `headerRight` of My Jobs tab in `app/(employee)/_layout.tsx`
+- Team tab uses its own Sign Out (see above)
+
+### Create Shipment validation (Phase 8 bugfix)
+- ETA Date is now **required** (was optional before)
+- ETA Time validates HH:MM format if provided
+- Both show inline field errors
+
+---
+
+## Phase 9: Deploy to Render.com (NEXT SESSION)
+
+**Goal:** Get the backend live on Render.com so the phone app can connect without any local network setup.
+
+### Exact steps for next Claude session:
+
+1. **Push current code to GitHub:**
+   ```bash
+   git push origin master
+   ```
+
+2. **Go to render.com** → Sign up / Log in → New → Web Service
+
+3. **Connect GitHub repo** → Select `DGVJ-Shipment-Tracker`
+
+4. **Settings:**
+   - Root Directory: `backend`
+   - Render auto-detects `render.yaml` — build/start commands fill in automatically
+
+5. **Add Environment Variables** in Render Dashboard → Environment:
+   - `SUPABASE_URL` = (from your Supabase project → Settings → API)
+   - `SUPABASE_SERVICE_KEY` = (service_role key from same page)
+   - `FIREBASE_PROJECT_ID` = `dvgj-shipment-tracker`
+
+6. **Upload Secret File:** Render Dashboard → Secret Files → add `firebase-service-account.json` at path `./firebase-service-account.json`
+   - Download this from: Firebase Console → Project Settings → Service Accounts → Generate new private key
+
+7. **Deploy.** Wait ~3 minutes. Live URL format: `https://digvijay-blr-api.onrender.com`
+
+8. **Update `.env` for development:**
+   ```
+   EXPO_PUBLIC_API_URL=http://localhost:8000       # for emulator/ADB
+   EXPO_PUBLIC_PROD_API_URL=https://<render-url>   # for EAS builds
+   EXPO_PUBLIC_DEV_MOCK_AUTH=true
+   ```
+
+9. **Test on phone:** Set `EXPO_PUBLIC_API_URL=https://<render-url>` in `.env`, restart expo, scan QR — should work from any network.
+
+### After deployment works:
+- UI improvements pass (user requested "less AI-generated" look)
+- EAS build for APK distribution
+- Add Firebase test phone numbers for real OTP testing
