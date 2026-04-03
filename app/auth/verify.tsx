@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -9,7 +9,7 @@ import { OTPInput } from '@/components/ui/OTPInput';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function VerifyScreen() {
-  const { verifyOTP, setDevRole } = useAuth();
+  const { verifyOTP } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,11 +27,6 @@ export default function VerifyScreen() {
     setLoading(true);
     try {
       await verifyOTP(code);
-      if (Config.DEV_MOCK_AUTH) {
-        // In dev mode, go back to login for role selection
-        // or auto-select admin for convenience
-        setDevRole('admin');
-      }
       router.replace('/');
     } catch (e: any) {
       setError(e.message || 'Invalid OTP');
@@ -74,6 +69,13 @@ export default function VerifyScreen() {
           loading={loading}
           disabled={code.length < 6}
         />
+
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingOverlayText}>Verifying...</Text>
+          </View>
+        )}
 
         <View style={styles.resendRow}>
           {countdown > 0 ? (
@@ -149,5 +151,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '600',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99,
+  },
+  loadingOverlayText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
 });

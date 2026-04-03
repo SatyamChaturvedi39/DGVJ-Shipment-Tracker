@@ -35,7 +35,17 @@ async def get_current_user(
     token = credentials.credentials
 
     # Dev mock token — skip real verification
-    if token == "dev-mock-token":
+    if token == "dev-mock-token" or token.startswith("dev-mock-token:"):
+        phone = token.split(":", 1)[1] if ":" in token else None
+        if phone:
+            result = supabase.table("users").select("*").eq("phone", phone).execute()
+            if result.data:
+                user = result.data[0]
+                if not user.get("is_active", True):
+                    raise HTTPException(status_code=403, detail="Account is inactive")
+                return user
+            raise HTTPException(status_code=403, detail="Your number is not registered. Contact Digvijay Express to get access.")
+        # Fallback (no phone in token) → first admin
         result = supabase.table("users").select("*").eq("role", "admin").limit(1).execute()
         if result.data:
             return result.data[0]

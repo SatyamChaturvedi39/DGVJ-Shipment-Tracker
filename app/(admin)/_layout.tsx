@@ -70,6 +70,13 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#128100;</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="shipment-detail"
         options={{
           title: 'Shipment Details',

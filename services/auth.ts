@@ -71,7 +71,7 @@ export async function signOut(): Promise<void> {
 
 export async function getIdToken(): Promise<string | null> {
   if (Config.DEV_MOCK_AUTH) {
-    return 'dev-mock-token';
+    return mockPhone ? `dev-mock-token:${mockPhone}` : 'dev-mock-token';
   }
   const user = auth.currentUser;
   if (!user) return null;

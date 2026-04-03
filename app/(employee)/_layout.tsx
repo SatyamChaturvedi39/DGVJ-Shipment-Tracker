@@ -53,6 +53,13 @@ export default function EmployeeLayout() {
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#128100;</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="job-detail"
         options={{
           title: 'Job Details',

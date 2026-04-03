@@ -89,8 +89,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const verifyOTP = useCallback(async (code: string) => {
     await verifyOTPService(code);
-    // onAuthStateChanged fires automatically after successful verification
-    // and sets the user — no manual setUser needed here
+    if (Config.DEV_MOCK_AUTH) {
+      setIsLoading(true);
+      try {
+        const profile = await getMe();
+        setUser(profile);
+      } catch (e: any) {
+        if (e?.response?.status === 403) {
+          await signOutService();
+          setAuthError(
+            e?.response?.data?.detail ||
+            'Access denied. Contact Digvijay Express to get access.'
+          );
+        }
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    // Real mode: onAuthStateChanged fires automatically after verification
+    // and calls getMe() to set the user
   }, []);
 
   const logout = useCallback(async () => {
