@@ -48,3 +48,7 @@ backend/firebase-service-account.json
 # generated native folders
 /ios
 /android
+
+# Claude
+CLAUDE.md
+.claude/
