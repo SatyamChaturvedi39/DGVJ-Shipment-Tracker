@@ -265,7 +265,7 @@ export default function TeamScreen() {
   const listData = activeTab === 'employees' ? employees : customers;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Team</Text>
