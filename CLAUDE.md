@@ -84,7 +84,7 @@ Phase order: `pickup → transit → delivery → completed`
 
 - Admin triggers phase transitions from shipment-detail screen
 - Employee triggers pickup→transit ("Mark as Picked Up") and delivery→completed ("Mark as Delivered") from job-detail screen
-- **Backend note:** `PUT /shipments/{id}/phase` is currently admin-only in tracking.py. Employee phase transitions work in dev mode only (dev-mock-token returns admin). For production, backend needs `require_role("admin", "employee")`.
+- `PUT /shipments/{id}/phase` uses `require_role("admin", "employee")` — both roles can advance phases.
 
 ---
 
@@ -272,7 +272,7 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 6 | ✅ DONE | Testing: 30 pytest tests green, 0 TypeScript errors, integration check script, manual test comments |
 | 7 | ✅ DONE | Polish + production deployment: Render config, EAS build, env var cleanup, v1.0.0 tag |
 | 8 | ✅ DONE | Closed auth system + admin user management Team screen |
-| 9 | ⏳ NEXT | Deploy backend to Render.com + test on real device via Render URL |
+| 9 | ✅ DONE | Production readiness + UI polish (wordmark, phase-specific buttons, timeline dots, transit icons, tracking banner) |
 
 ---
 
@@ -327,34 +327,28 @@ eas build --profile production --platform android
 ### 1. Real OTP does not work on physical device
 - **Root cause:** Firebase JS SDK's `fakeRecaptchaVerifier` only works with Firebase test phone numbers. Real phone numbers with real OTP require `@react-native-firebase` (native build) or a server-side SMS gateway.
 - **Current workaround:** Use dev mode role selector (`EXPO_PUBLIC_DEV_MOCK_AUTH=true`) to bypass OTP entirely during development.
-- **To fix for production:** Either (a) set up Firebase test phone numbers in Firebase Console for testing, or (b) switch to `@react-native-firebase` when doing a custom dev build (EAS Build).
+- **To fix for production:** Set up Firebase test phone numbers in Firebase Console for testing (see `DEPLOYMENT_CHECKLIST.md`), or switch to `@react-native-firebase` when doing EAS Build.
 
-### 2. ~~New users are always created as 'customer' role~~ — FIXED in Phase 8
-- **Fix:** Closed auth system — admin pre-registers users via Team screen. Unknown phones get 403. No auto-creation.
-
-### 3. ~~Employee phase transitions are admin-only in backend~~ — FIXED in Phase 8
-- **Fix:** `require_role("admin", "employee")` in `tracking.py` line 22.
-
-### 4. `POST /location/update` skipped in dev mode
+### 2. `POST /location/update` skipped in dev mode
 - **Root cause:** Requires employee role; dev-mock-token returns admin → 403.
 - **Current state:** In `job-detail.tsx`, location updates are skipped when `Config.DEV_MOCK_AUTH` is true. GPS UI (watcher, coordinates display) works normally.
 - **To fix for production:** No code change needed — real employee tokens will pass the role check.
 
-### 5. Local network connectivity between phone and laptop
+### 3. Local network connectivity between phone and laptop
 - Windows hotspot and most Wi-Fi routers block device-to-device (phone→laptop) traffic (AP Isolation / ICS firewall).
 - **Workaround A — ADB reverse (USB cable, no network needed):**
   1. Enable USB Debugging on phone (Settings → Developer Options)
   2. Connect USB cable; run: `C:\platform-tools\adb.exe reverse tcp:8000 tcp:8000`
   3. Set `.env`: `EXPO_PUBLIC_API_URL=http://localhost:8000`
   4. `npx expo start --clear` then press `a` in terminal
-- **Workaround B (permanent) — Deploy to Render.com:** Use the deployed backend URL. No local network issues. See Deployment section.
+- **Workaround B (permanent) — Deploy to Render.com:** Use the deployed backend URL. No local network issues. See `DEPLOYMENT_CHECKLIST.md`.
 - **Dev mock token requires an admin user in Supabase** — the backend looks for `role='admin'`. Admin user for this project: `+919663469507` (already inserted). If DB is reset, re-run: `INSERT INTO users (phone, name, role, is_active) VALUES ('+919663469507', 'Admin', 'admin', true);`
 
-### 6. Backend must bind to 0.0.0.0 for LAN access
+### 4. Backend must bind to 0.0.0.0 for LAN access
 - Default `uvicorn main:app --reload` binds to `127.0.0.1` (localhost only).
 - For physical device testing: `uvicorn main:app --reload --host 0.0.0.0`
 
-### 7. react-native-maps plugin removed from app.json
+### 5. react-native-maps plugin removed from app.json
 - v1.20.1 has no `app.plugin.js` — adding it to `plugins` crashes Expo start.
 - Google Maps API key is set correctly under `android.config.googleMaps.apiKey` in app.json instead.
 - Do NOT re-add `react-native-maps` to the `plugins` array.
@@ -718,45 +712,20 @@ Returns all non-admin users ordered by role then name. The Team screen filters c
 
 ---
 
-## Phase 9: Deploy to Render.com (NEXT SESSION)
+## Key implementation notes (from Phase 9)
 
-**Goal:** Get the backend live on Render.com so the phone app can connect without any local network setup.
+### UI polish changes (Phase 9)
+- **Login screen:** Replaced "D" letter box with DIGVIJAY/EXPRESS/BLR wordmark. Subtitle: "Bangalore Branch — Shipment Tracking". Button: "Send OTP →".
+- **Dashboard:** Stat cards have emoji icons (📦 ✈ ✅). Shipment cards have 4px left border in phase color (amber/blue/green). Section header shows live count. Empty state is action-oriented.
+- **Create Shipment:** Section headers have 3px red left border. Selected toggle option uses red outline + light tint instead of full red fill. Button says "Create Shipment →". After creation: 2-second success overlay screen before navigating back.
+- **Shipment Detail:** Timeline dots — completed = solid red circle with white ✓, current = pulsing red outlined circle, pending = gray outlined circle. Phase badge is larger (15px, padded). Advance button shows specific label: "Mark as In Transit →", "Mark as Out for Delivery →", "Mark as Delivered ✓".
+- **Customer Tracking:** Phase progress connecting lines — red for completed segments, semi-transparent white for pending (on dark header). ETA date is 28px bold. Transit card shows large icon (🚂/✈️ at 56px) and transport number in monospace font.
+- **Employee Job Detail:** Green "TRACKING ACTIVE" banner appears at top of scroll when GPS is on. Action buttons are 56px tall with 📦/✓ icons.
+- **All screens:** Loading states have descriptive label below spinner. Section header style: 11px uppercase letterSpacing 0.8. Cards use `borderWidth: 1, borderColor: Colors.border`, `shadowOpacity: 0.04` max.
 
-### Exact steps for next Claude session:
+### render.yaml fix
+`rootDir: backend` added to `backend/render.yaml` — was missing, which would have caused Render to look for `requirements.txt` in the repo root instead of the `backend/` folder.
 
-1. **Push current code to GitHub:**
-   ```bash
-   git push origin master
-   ```
-
-2. **Go to render.com** → Sign up / Log in → New → Web Service
-
-3. **Connect GitHub repo** → Select `DGVJ-Shipment-Tracker`
-
-4. **Settings:**
-   - Root Directory: `backend`
-   - Render auto-detects `render.yaml` — build/start commands fill in automatically
-
-5. **Add Environment Variables** in Render Dashboard → Environment:
-   - `SUPABASE_URL` = (from your Supabase project → Settings → API)
-   - `SUPABASE_SERVICE_KEY` = (service_role key from same page)
-   - `FIREBASE_PROJECT_ID` = `dvgj-shipment-tracker`
-
-6. **Upload Secret File:** Render Dashboard → Secret Files → add `firebase-service-account.json` at path `./firebase-service-account.json`
-   - Download this from: Firebase Console → Project Settings → Service Accounts → Generate new private key
-
-7. **Deploy.** Wait ~3 minutes. Live URL format: `https://digvijay-blr-api.onrender.com`
-
-8. **Update `.env` for development:**
-   ```
-   EXPO_PUBLIC_API_URL=http://localhost:8000       # for emulator/ADB
-   EXPO_PUBLIC_PROD_API_URL=https://<render-url>   # for EAS builds
-   EXPO_PUBLIC_DEV_MOCK_AUTH=true
-   ```
-
-9. **Test on phone:** Set `EXPO_PUBLIC_API_URL=https://<render-url>` in `.env`, restart expo, scan QR — should work from any network.
-
-### After deployment works:
-- UI improvements pass (user requested "less AI-generated" look)
-- EAS build for APK distribution
-- Add Firebase test phone numbers for real OTP testing
+### Deployment docs
+- `DEPLOYMENT_CHECKLIST.md` in project root — full manual steps for Render.com deployment, Supabase verification, Firebase test phones, and EAS APK build.
+- `.env.example` restructured with three clear sections: LOCAL DEVELOPMENT, PHYSICAL DEVICE TESTING, PRODUCTION.

@@ -39,21 +39,32 @@ function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
 
 // ─── Stats card ──────────────────────────────────────────────────────────────
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
   return (
     <View style={styles.statCard}>
+      <Text style={styles.statIcon}>{icon}</Text>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
+// ─── Phase left-border color ─────────────────────────────────────────────────
+
+const PHASE_BORDER: Record<ShipmentPhase, string> = {
+  pickup:    '#F57F17',
+  transit:   '#1565C0',
+  delivery:  '#F57F17',
+  completed: '#2E7D32',
+};
+
 // ─── Shipment row card ───────────────────────────────────────────────────────
 
 function ShipmentCard({ shipment }: { shipment: Shipment }) {
+  const borderColor = PHASE_BORDER[shipment.current_phase] ?? Colors.border;
   return (
     <TouchableOpacity
-      style={styles.shipmentCard}
+      style={[styles.shipmentCard, { borderLeftColor: borderColor }]}
       activeOpacity={0.7}
       onPress={() => router.push(`/(admin)/shipment-detail?id=${shipment.id}`)}
     >
@@ -123,6 +134,7 @@ export default function AdminDashboard() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingLabel}>Loading shipments...</Text>
       </View>
     );
   }
@@ -158,20 +170,20 @@ export default function AdminDashboard() {
 
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <StatCard label="Active" value={active.length} />
-        <StatCard label="In Transit" value={inTransit} />
-        <StatCard label="Delivered Today" value={deliveredToday} />
+        <StatCard label="Active" value={active.length} icon="📦" />
+        <StatCard label="In Transit" value={inTransit} icon="✈" />
+        <StatCard label="Delivered Today" value={deliveredToday} icon="✅" />
       </View>
 
       {/* Active shipments list */}
-      <Text style={styles.sectionHeader}>Active Shipments</Text>
+      <Text style={styles.sectionHeader}>Active Shipments ({active.length})</Text>
 
       {active.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>📦</Text>
           <Text style={styles.emptyTitle}>No active shipments</Text>
           <Text style={styles.emptySubtitle}>
-            Create a new shipment to get started.
+            Create one using the + tab below.
           </Text>
         </View>
       ) : (
@@ -260,11 +272,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
+  },
+  statIcon: {
+    fontSize: 20,
+    marginBottom: 4,
   },
   statValue: {
     fontSize: 28,
@@ -279,11 +297,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // Loading label
+  loadingLabel: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+
   // Section header
   sectionHeader: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '700',
     color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
     marginBottom: 12,
   },
 
@@ -293,11 +320,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderLeftWidth: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   shipmentCardTop: {
     flexDirection: 'row',

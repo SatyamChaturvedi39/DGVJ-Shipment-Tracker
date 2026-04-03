@@ -45,11 +45,14 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>D</Text>
+          <View style={styles.wordmarkRow}>
+            <Text style={styles.brandName}>DIGVIJAY</Text>
+            <View style={styles.blrBadge}>
+              <Text style={styles.blrBadgeText}>BLR</Text>
+            </View>
           </View>
-          <Text style={styles.appName}>Digvijay BLR</Text>
-          <Text style={styles.tagline}>Shipment Tracking Made Simple</Text>
+          <Text style={styles.expressText}>EXPRESS</Text>
+          <Text style={styles.tagline}>Bangalore Branch — Shipment Tracking</Text>
         </View>
 
         <View style={styles.form}>
@@ -69,7 +72,7 @@ export default function LoginScreen() {
             error={error}
           />
           <Button
-            title="Send OTP"
+            title="Send OTP  →"
             onPress={handleSendOTP}
             loading={loading}
             disabled={phone.length < 10}
@@ -129,28 +132,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
-  logoBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
+  wordmarkRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 2,
   },
-  logoText: {
+  brandName: {
     fontSize: 36,
+    fontWeight: '900',
+    color: Colors.primary,
+    letterSpacing: 2,
+  },
+  blrBadge: {
+    backgroundColor: Colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'center',
+  },
+  blrBadgeText: {
+    fontSize: 11,
     fontWeight: '800',
     color: Colors.textOnPrimary,
+    letterSpacing: 1,
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginBottom: 4,
+  expressText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    letterSpacing: 4,
+    marginBottom: 10,
   },
   tagline: {
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.textSecondary,
   },
   form: {

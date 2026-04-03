@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -121,7 +122,7 @@ const progress = StyleSheet.create({
   },
   dotDone:    { backgroundColor: Colors.primary },
   dotCurrent: { backgroundColor: Colors.primary },
-  dotFuture:  { backgroundColor: '#444466', borderWidth: 2, borderColor: '#555577' },
+  dotFuture:  { backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)' },
   line: {
     flex: 1,
     height: 2,
@@ -129,7 +130,7 @@ const progress = StyleSheet.create({
     marginHorizontal: -2,
   },
   lineDone:   { backgroundColor: Colors.primary },
-  lineFuture: { backgroundColor: '#444466' },
+  lineFuture: { backgroundColor: 'rgba(255,255,255,0.2)' },
   label: {
     fontSize: 10,
     fontWeight: '600',
@@ -137,7 +138,7 @@ const progress = StyleSheet.create({
   },
   labelDone:    { color: Colors.primaryLight },
   labelCurrent: { color: '#FFFFFF', fontWeight: '800' },
-  labelFuture:  { color: '#888899' },
+  labelFuture:  { color: 'rgba(255,255,255,0.45)' },
 });
 
 // ─── Status human label ───────────────────────────────────────────────────────
@@ -405,15 +406,13 @@ function TransitSection({ shipment }: { shipment: ShipmentDetail }) {
     <View>
       <View style={styles.transitCard}>
         <Text style={styles.transitIcon}>{icon}</Text>
-        <Text style={styles.transitLine}>
-          In transit via {shipment.transport_number}
-        </Text>
+        <Text style={styles.transitNumber}>{shipment.transport_number}</Text>
         <View style={styles.transitRoute}>
           <Text style={styles.transitCity}>{shipment.origin}</Text>
           <Text style={styles.transitArrow}> → </Text>
           <Text style={styles.transitCity}>{shipment.destination}</Text>
         </View>
-        <Text style={styles.transitMode}>Handed to {modeLabel}</Text>
+        <Text style={styles.transitMode}>In transit via {modeLabel}</Text>
       </View>
 
       {manualEvents.length > 0 && (
@@ -507,6 +506,7 @@ export default function ShipmentTrackingScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingLabel}>Loading tracking info...</Text>
       </View>
     );
   }
@@ -626,6 +626,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     padding: 24,
   },
+  loadingLabel: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
   errorText: {
     fontSize: 14,
     color: Colors.textSecondary,
@@ -685,7 +690,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   etaCardDate: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: Colors.textPrimary,
     marginBottom: 2,
@@ -742,9 +747,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceElevated,
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -832,13 +839,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
-  transitIcon: { fontSize: 48, marginBottom: 12 },
-  transitLine: {
-    fontSize: 16,
+  transitIcon: { fontSize: 56, marginBottom: 10 },
+  transitNumber: {
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginBottom: 10,
+    letterSpacing: 1,
   },
   transitRoute: {
     flexDirection: 'row',

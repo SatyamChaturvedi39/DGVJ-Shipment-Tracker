@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -60,7 +60,7 @@ const seg = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
     marginBottom: 16,
@@ -69,9 +69,13 @@ const seg = StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   btnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FFF5F5',
+    borderColor: Colors.primary,
+    borderRadius: 10,
   },
   label: {
     fontSize: 15,
@@ -79,7 +83,8 @@ const seg = StyleSheet.create({
     color: Colors.textSecondary,
   },
   labelActive: {
-    color: '#FFFFFF',
+    color: Colors.primary,
+    fontWeight: '700',
   },
 });
 
@@ -285,6 +290,8 @@ export default function CreateShipment() {
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [successTrackingId, setSuccessTrackingId] = useState<string | null>(null);
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -299,6 +306,17 @@ export default function CreateShipment() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (successTrackingId) {
+      successTimer.current = setTimeout(() => {
+        router.replace('/(admin)/dashboard');
+      }, 2000);
+    }
+    return () => {
+      if (successTimer.current) clearTimeout(successTimer.current);
+    };
+  }, [successTrackingId]);
 
   const employeeOptions = employees.map(e => ({ id: e.id, label: e.name, sub: e.phone }));
   const customerOptions = customers.map(c => ({
@@ -334,7 +352,7 @@ export default function CreateShipment() {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await createShipment({
+      const created = await createShipment({
         origin: origin.trim(),
         destination: destination.trim(),
         goods_description: goodsDescription.trim() || undefined,
@@ -347,9 +365,7 @@ export default function CreateShipment() {
         notes: notes.trim() || undefined,
         customer_ids: selectedCustomerIds,
       });
-      Alert.alert('Shipment Created', 'The new shipment has been created successfully.', [
-        { text: 'OK', onPress: () => router.replace('/(admin)/dashboard') },
-      ]);
+      setSuccessTrackingId(created?.tracking_id ?? 'DGVJ-????');
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? 'Failed to create shipment. Please try again.';
       Alert.alert('Error', msg);
@@ -362,6 +378,17 @@ export default function CreateShipment() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingLabel}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (successTrackingId) {
+    return (
+      <View style={styles.successOverlay}>
+        <Text style={styles.successCheck}>✓</Text>
+        <Text style={styles.successTitle}>Shipment Created!</Text>
+        <Text style={styles.successId}>{successTrackingId}</Text>
       </View>
     );
   }
@@ -484,7 +511,7 @@ export default function CreateShipment() {
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitBtnText}>Create Shipment</Text>
+            <Text style={styles.submitBtnText}>Create Shipment  →</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -509,15 +536,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surface,
   },
+  loadingLabel: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+
+  successOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    padding: 32,
+  },
+  successCheck: {
+    fontSize: 64,
+    color: Colors.success,
+    fontWeight: '800',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  successId: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary,
+    letterSpacing: 1,
+  },
 
   section: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: 8,
     marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+    paddingLeft: 8,
   },
   fieldWrap: {
     marginBottom: 16,

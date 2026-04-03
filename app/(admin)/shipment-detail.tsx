@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
@@ -55,8 +56,8 @@ function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
 }
 
 const badge = StyleSheet.create({
-  container: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
-  text: { fontSize: 13, fontWeight: '700' },
+  container: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20 },
+  text: { fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
 });
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
@@ -83,12 +84,44 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
 // ─── Timeline event ───────────────────────────────────────────────────────────
 
-function TimelineItem({ event, isLast }: { event: StatusEvent; isLast: boolean }) {
+function TimelineItem({
+  event,
+  isLast,
+  isCurrent,
+}: {
+  event: StatusEvent;
+  isLast: boolean;
+  isCurrent: boolean;
+}) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isCurrent) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [isCurrent, pulse]);
+
   return (
     <View style={timeline.row}>
       <View style={timeline.left}>
-        <View style={[timeline.dot, event.is_completed ? timeline.dotDone : timeline.dotPending]} />
-        {!isLast && <View style={[timeline.line, event.is_completed ? timeline.lineDone : timeline.linePending]} />}
+        {event.is_completed ? (
+          <View style={[timeline.dot, timeline.dotDone]}>
+            <Text style={timeline.dotCheck}>✓</Text>
+          </View>
+        ) : isCurrent ? (
+          <Animated.View style={[timeline.dot, timeline.dotCurrent, { opacity: pulse }]} />
+        ) : (
+          <View style={[timeline.dot, timeline.dotPending]} />
+        )}
+        {!isLast && (
+          <View style={[timeline.line, event.is_completed ? timeline.lineDone : timeline.linePending]} />
+        )}
       </View>
       <View style={timeline.content}>
         <Text style={[timeline.label, event.is_completed ? timeline.labelDone : timeline.labelPending]}>
@@ -111,11 +144,13 @@ function TimelineItem({ event, isLast }: { event: StatusEvent; isLast: boolean }
 const timeline = StyleSheet.create({
   row: { flexDirection: 'row', marginBottom: 0 },
   left: { width: 28, alignItems: 'center' },
-  dot: { width: 14, height: 14, borderRadius: 7, marginTop: 3 },
-  dotDone: { backgroundColor: Colors.success },
-  dotPending: { backgroundColor: Colors.border, borderWidth: 2, borderColor: Colors.textMuted },
+  dot: { width: 16, height: 16, borderRadius: 8, marginTop: 3, justifyContent: 'center', alignItems: 'center' },
+  dotDone: { backgroundColor: Colors.primary },
+  dotCheck: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  dotCurrent: { borderWidth: 2, borderColor: Colors.primary, backgroundColor: 'transparent' },
+  dotPending: { borderWidth: 2, borderColor: Colors.border, backgroundColor: 'transparent' },
   line: { flex: 1, width: 2, marginVertical: 2 },
-  lineDone: { backgroundColor: Colors.success },
+  lineDone: { backgroundColor: Colors.primary },
   linePending: { backgroundColor: Colors.border },
   content: { flex: 1, paddingBottom: 20, paddingLeft: 10 },
   label: { fontSize: 14, fontWeight: '600' },
@@ -315,6 +350,7 @@ export default function ShipmentDetailScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingLabel}>Loading shipment...</Text>
       </View>
     );
   }
@@ -393,13 +429,18 @@ export default function ShipmentDetailScreen() {
         {/* ── Status timeline ─────────────────────────────────────── */}
         {shipment.status_events?.length > 0 && (
           <Section title="Status Timeline">
-            {shipment.status_events.map((ev, idx) => (
-              <TimelineItem
-                key={ev.id}
-                event={ev}
-                isLast={idx === shipment.status_events.length - 1}
-              />
-            ))}
+            {shipment.status_events.map((ev, idx) => {
+              const firstPendingIdx = shipment.status_events.findIndex(e => !e.is_completed);
+              const isCurrent = !ev.is_completed && idx === firstPendingIdx;
+              return (
+                <TimelineItem
+                  key={ev.id}
+                  event={ev}
+                  isLast={idx === shipment.status_events.length - 1}
+                  isCurrent={isCurrent}
+                />
+              );
+            })}
           </Section>
         )}
 
@@ -451,12 +492,13 @@ export default function ShipmentDetailScreen() {
               {advancingPhase ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <>
-                  <Text style={styles.actionBtnText}>
-                    Advance to {nextPhase ? PHASE_CONFIG[nextPhase].label : '—'}
-                  </Text>
-                  <Text style={styles.actionBtnIcon}>→</Text>
-                </>
+                <Text style={styles.actionBtnText}>
+                  {shipment.current_phase === 'pickup'
+                    ? 'Mark as In Transit  →'
+                    : shipment.current_phase === 'transit'
+                    ? 'Mark as Out for Delivery  →'
+                    : 'Mark as Delivered  ✓'}
+                </Text>
               )}
             </TouchableOpacity>
 
@@ -500,6 +542,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surface,
     padding: 24,
+  },
+  loadingLabel: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
   errorText: {
     fontSize: 15,
@@ -554,7 +601,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
@@ -566,9 +613,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceElevated,
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -676,7 +725,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   actionsSectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',

@@ -153,7 +153,7 @@ const tl = StyleSheet.create({
 
 // ─── Pulsing dot ─────────────────────────────────────────────────────────────
 
-function PulsingDot() {
+function PulsingDot({ color = Colors.primary }: { color?: string }) {
   const anim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -166,7 +166,7 @@ function PulsingDot() {
   }, [anim]);
 
   return (
-    <Animated.View style={[styles.pulsingDot, { opacity: anim }]} />
+    <Animated.View style={[styles.pulsingDot, { opacity: anim, backgroundColor: color }]} />
   );
 }
 
@@ -339,6 +339,7 @@ export default function JobDetailScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingLabel}>Loading your job...</Text>
       </View>
     );
   }
@@ -361,6 +362,14 @@ export default function JobDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+
+      {/* ── Tracking active banner ───────────────────────────────────── */}
+      {tracking && (
+        <View style={styles.trackingBanner}>
+          <PulsingDot color="#2E7D32" />
+          <Text style={styles.trackingBannerText}>TRACKING ACTIVE</Text>
+        </View>
+      )}
 
       {/* ── Header card ──────────────────────────────────────────────── */}
       <View style={styles.headerCard}>
@@ -473,7 +482,7 @@ export default function JobDetailScreen() {
               {transitioning ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.actionBtnText}>Mark as Picked Up</Text>
+                <Text style={styles.actionBtnText}>📦  Mark as Picked Up</Text>
               )}
             </TouchableOpacity>
           )}
@@ -489,7 +498,7 @@ export default function JobDetailScreen() {
               {transitioning ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.actionBtnText}>Mark as Delivered</Text>
+                <Text style={styles.actionBtnText}>✓  Mark as Delivered</Text>
               )}
             </TouchableOpacity>
           )}
@@ -538,6 +547,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     padding: 24,
   },
+  loadingLabel: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
   errorText: {
     fontSize: 14,
     color: Colors.textSecondary,
@@ -576,10 +590,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
 
+  // Tracking banner
+  trackingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2E7D32',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    marginHorizontal: -16,
+    marginTop: -16,
+    gap: 8,
+  },
+  trackingBannerText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2E7D32',
+    letterSpacing: 1,
+  },
+
   // Section
   section: { marginBottom: 16 },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
@@ -591,9 +626,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceElevated,
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -667,7 +704,6 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: Colors.primary,
   },
   trackingStatusText: { flex: 1 },
   trackingActiveLabel: {
@@ -713,7 +749,7 @@ const styles = StyleSheet.create({
   // Actions
   actionsSection: { marginTop: 4, marginBottom: 16 },
   actionsSectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
@@ -723,10 +759,11 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     borderRadius: 12,
-    height: 52,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
+    width: '100%',
   },
   actionBtnAmber: { backgroundColor: '#F57F17' },
   actionBtnGreen: { backgroundColor: Colors.success },
