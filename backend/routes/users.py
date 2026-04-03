@@ -71,7 +71,9 @@ def admin_update_user(user_id: str, body: AdminUpdateUserRequest, _user: dict = 
 
 @router.delete("/{user_id}")
 def delete_user(user_id: str, _user: dict = Depends(require_role("admin"))):
-    result = supabase.table("users").update({"is_active": False}).eq("id", user_id).execute()
-    if not result.data:
+    check = supabase.table("users").select("id").eq("id", user_id).execute()
+    if not check.data:
         raise HTTPException(status_code=404, detail="User not found")
+    supabase.table("shipment_permissions").delete().eq("customer_user_id", user_id).execute()
+    supabase.table("users").delete().eq("id", user_id).execute()
     return {"deleted": True}

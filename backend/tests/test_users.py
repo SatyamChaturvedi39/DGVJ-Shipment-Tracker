@@ -78,3 +78,30 @@ def test_update_me_empty_body_returns_user(client):
     resp = client.put("/users/me", json={}, headers=HEADERS)
     assert resp.status_code == 200
     assert "id" in resp.json()
+
+
+# ── DELETE /users/{user_id} ───────────────────────────────────────────────────
+
+def test_delete_user_removes_from_db(client):
+    """DELETE hard-deletes the user row; they no longer appear in GET /users."""
+    resp = client.post("/users", json={
+        "name": "Delete Test User",
+        "phone": "+919000000099",
+        "role": "customer",
+    }, headers=HEADERS)
+    assert resp.status_code == 201
+    user_id = resp.json()["id"]
+
+    del_resp = client.delete(f"/users/{user_id}", headers=HEADERS)
+    assert del_resp.status_code == 200
+    assert del_resp.json() == {"deleted": True}
+
+    all_users = client.get("/users", headers=HEADERS).json()
+    ids = [u["id"] for u in all_users]
+    assert user_id not in ids
+
+
+def test_delete_user_not_found(client):
+    """DELETE with a non-existent user ID returns 404."""
+    resp = client.delete("/users/00000000-0000-0000-0000-000000000000", headers=HEADERS)
+    assert resp.status_code == 404

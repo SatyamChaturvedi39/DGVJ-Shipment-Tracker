@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { router } from 'expo-router';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/colors';
 import { createShipment, getEmployees, getCustomers } from '@/services/api';
 import type { User } from '@/types';
@@ -222,7 +223,9 @@ function MultiSelectPicker({
       <FieldLabel>{label}</FieldLabel>
       <TouchableOpacity style={styles.dropdownBtn} onPress={() => setOpen(true)} activeOpacity={0.7}>
         <Text style={[styles.dropdownBtnText, selectedLabels.length === 0 && styles.dropdownPlaceholder]} numberOfLines={1}>
-          {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
+          {selectedLabels.length > 0
+            ? `${selectedLabels.length} customer${selectedLabels.length === 1 ? '' : 's'} selected`
+            : placeholder}
         </Text>
         <Text style={styles.dropdownChevron}>▾</Text>
       </TouchableOpacity>
@@ -231,7 +234,12 @@ function MultiSelectPicker({
         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setOpen(false)} />
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
-          <Text style={styles.modalTitle}>{label}</Text>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalTitle}>{label}</Text>
+            <TouchableOpacity onPress={() => setOpen(false)}>
+              <Text style={styles.modalDoneTextBtn}>Done</Text>
+            </TouchableOpacity>
+          </View>
           <FlatList
             data={options}
             keyExtractor={item => item.id}
@@ -252,9 +260,6 @@ function MultiSelectPicker({
               );
             }}
           />
-          <TouchableOpacity style={styles.modalDoneBtn} onPress={() => setOpen(false)}>
-            <Text style={styles.modalDoneText}>Done ({values.length} selected)</Text>
-          </TouchableOpacity>
         </View>
       </Modal>
     </View>
@@ -284,6 +289,10 @@ export default function CreateShipment() {
   const [transportNumber, setTransportNumber] = useState('');
   const [etaDate, setEtaDate] = useState('');
   const [etaTime, setEtaTime] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [datePickerDate, setDatePickerDate] = useState<Date | null>(null);
+  const [timePickerDate, setTimePickerDate] = useState<Date | null>(null);
   const [pickupEmployeeId, setPickupEmployeeId] = useState<string | null>(null);
   const [deliveryEmployeeId, setDeliveryEmployeeId] = useState<string | null>(null);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
@@ -331,18 +340,36 @@ export default function CreateShipment() {
     );
   };
 
+  const handleDateChange = (_e: DateTimePickerEvent, selected?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selected) {
+      setDatePickerDate(selected);
+      const yyyy = selected.getFullYear();
+      const mm = String(selected.getMonth() + 1).padStart(2, '0');
+      const dd = String(selected.getDate()).padStart(2, '0');
+      setEtaDate(`${yyyy}-${mm}-${dd}`);
+      if (errors.eta_date) setErrors(prev => ({ ...prev, eta_date: undefined }));
+    }
+  };
+
+  const handleTimeChange = (_e: DateTimePickerEvent, selected?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selected) {
+      setTimePickerDate(selected);
+      const hh = String(selected.getHours()).padStart(2, '0');
+      const min = String(selected.getMinutes()).padStart(2, '0');
+      setEtaTime(`${hh}:${min}`);
+      if (errors.eta_time) setErrors(prev => ({ ...prev, eta_time: undefined }));
+    }
+  };
+
   const validate = (): boolean => {
     const e: FormErrors = {};
     if (!origin.trim()) e.origin = 'Origin is required';
     if (!destination.trim()) e.destination = 'Destination is required';
     if (!transportNumber.trim()) e.transport_number = 'Transport number is required';
     if (!etaDate.trim()) {
-      e.eta_date = 'ETA date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(etaDate.trim())) {
-      e.eta_date = 'Use format YYYY-MM-DD (e.g. 2026-04-15)';
-    }
-    if (etaTime.trim() && !/^\d{2}:\d{2}$/.test(etaTime.trim())) {
-      e.eta_time = 'Use format HH:MM (e.g. 14:30)';
+      e.eta_date = 'ETA date is required — tap the field to select';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -450,22 +477,49 @@ export default function CreateShipment() {
 
         {/* ETA */}
         <Text style={styles.section}>ETA</Text>
-        <Field
-          label="ETA Date"
-          value={etaDate}
-          onChange={(v) => { setEtaDate(v); if (errors.eta_date) setErrors(prev => ({ ...prev, eta_date: undefined })); }}
-          placeholder="YYYY-MM-DD"
-          hint="Format: YYYY-MM-DD"
-          error={errors.eta_date}
-        />
-        <Field
-          label="ETA Time (optional)"
-          value={etaTime}
-          onChange={(v) => { setEtaTime(v); if (errors.eta_time) setErrors(prev => ({ ...prev, eta_time: undefined })); }}
-          placeholder="HH:MM"
-          hint="Format: HH:MM (24h)"
-          error={errors.eta_time}
-        />
+        <View style={styles.fieldWrap}>
+          <FieldLabel>ETA Date</FieldLabel>
+          <TouchableOpacity
+            style={[styles.dropdownBtn, errors.eta_date ? styles.textInputError : undefined]}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.dropdownBtnText, !etaDate && styles.dropdownPlaceholder]}>
+              {'📅  '}{etaDate || 'Select date'}
+            </Text>
+          </TouchableOpacity>
+          {errors.eta_date ? <Text style={styles.fieldError}>{errors.eta_date}</Text> : null}
+          {showDatePicker && (
+            <DateTimePicker
+              value={datePickerDate ?? new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+            />
+          )}
+        </View>
+        <View style={styles.fieldWrap}>
+          <FieldLabel>ETA Time (optional)</FieldLabel>
+          <TouchableOpacity
+            style={[styles.dropdownBtn, errors.eta_time ? styles.textInputError : undefined]}
+            onPress={() => setShowTimePicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.dropdownBtnText, !etaTime && styles.dropdownPlaceholder]}>
+              {'🕐  '}{etaTime || 'Select time (optional)'}
+            </Text>
+          </TouchableOpacity>
+          {errors.eta_time ? <Text style={styles.fieldError}>{errors.eta_time}</Text> : null}
+          {showTimePicker && (
+            <DateTimePicker
+              value={timePickerDate ?? new Date()}
+              mode="time"
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleTimeChange}
+            />
+          )}
+        </View>
 
         {/* Assignment */}
         <Text style={styles.section}>Assignment</Text>
@@ -665,15 +719,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  modalDoneTextBtn: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   modalItem: {
     flexDirection: 'row',
@@ -730,18 +794,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
-  },
-  modalDoneBtn: {
-    margin: 16,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalDoneText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
   },
 
   // Submit

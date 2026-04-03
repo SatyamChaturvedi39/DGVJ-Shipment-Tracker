@@ -173,9 +173,16 @@ export default function MyJobs() {
     s.pickup_employee_id === userId ||
     s.delivery_employee_id === userId;
 
-  const activeJobs = shipments.filter(
-    s => (s.current_phase === 'pickup' || s.current_phase === 'delivery') && isAssigned(s),
-  );
+  const activeJobs = shipments.filter(s => {
+    if (!isAssigned(s)) return false;
+    if (Config.DEV_MOCK_AUTH) {
+      return s.current_phase === 'pickup' || s.current_phase === 'delivery';
+    }
+    const role = getEmployeeRole(s, userId);
+    if (role === 'pickup') return s.current_phase === 'pickup';
+    if (role === 'delivery') return s.current_phase === 'delivery';
+    return false;
+  });
 
   const completedJobs = shipments.filter(
     s => s.current_phase === 'completed' && isAssigned(s),

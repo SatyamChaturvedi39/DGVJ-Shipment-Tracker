@@ -221,7 +221,7 @@ export default function TeamScreen() {
     const u = actionSheet.user;
     Alert.alert(
       'Delete User',
-      `Remove ${u.name ?? u.phone} from the system? This is a soft delete — their shipment history is preserved.`,
+      `Delete ${u.name ?? u.phone}? This cannot be undone. They will lose access to all shipments immediately.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -231,7 +231,11 @@ export default function TeamScreen() {
             try {
               await deleteUser(u.id);
               closeAction();
-              loadUsers(true);
+              if (u.role === 'employee') {
+                setEmployees(prev => prev.filter(e => e.id !== u.id));
+              } else {
+                setCustomers(prev => prev.filter(c => c.id !== u.id));
+              }
             } catch {
               Alert.alert('Error', 'Could not delete user. Try again.');
             }

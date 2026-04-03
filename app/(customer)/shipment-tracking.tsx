@@ -278,6 +278,25 @@ function ExpandableDetails({ shipment }: { shipment: ShipmentDetail }) {
 
 // ─── Live map section ─────────────────────────────────────────────────────────
 
+function DriverStatusCard({ location }: { location: LocationUpdate | null }) {
+  if (!location) {
+    return (
+      <View style={styles.driverCard}>
+        <Text style={styles.driverCardText}>⏳ Waiting for driver to start tracking...</Text>
+      </View>
+    );
+  }
+  const t = new Date(location.timestamp).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return (
+    <View style={styles.driverCard}>
+      <Text style={styles.driverCardText}>🚗 Driver is on the way · Updated {t}</Text>
+    </View>
+  );
+}
+
 function LiveMapSection({
   shipmentId,
   wsRef,
@@ -290,11 +309,20 @@ function LiveMapSection({
   const [location, setLocation] = useState<LocationUpdate | null>(null);
   const [fetching, setFetching] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<MapView | null>(null);
 
   const fetchLocation = useCallback(async () => {
     try {
       const loc = await getLatestLocation(shipmentId);
-      if (loc) setLocation(loc);
+      if (loc) {
+        setLocation(loc);
+        mapRef.current?.animateToRegion({
+          latitude: loc.lat,
+          longitude: loc.lng,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }, 800);
+      }
     } catch {
       // No location yet — leave as null
     } finally {
@@ -327,6 +355,12 @@ function LiveMapSection({
             lng: data.lng,
             timestamp: new Date().toISOString(),
           }));
+          mapRef.current?.animateToRegion({
+            latitude: data.lat,
+            longitude: data.lng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 800);
         } else if (data.type === 'phase_change' || data.type === 'status_update') {
           onPhaseChange();
         }
@@ -349,16 +383,19 @@ function LiveMapSection({
 
   if (!location) {
     return (
-      <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapPlaceholderIcon}>📍</Text>
-        <Text style={styles.mapPlaceholderText}>
-          Tracking will begin when driver starts their journey
-        </Text>
+      <View>
+        <View style={styles.mapPlaceholder}>
+          <Text style={styles.mapPlaceholderIcon}>📍</Text>
+          <Text style={styles.mapPlaceholderText}>
+            Tracking will begin when driver starts their journey
+          </Text>
+        </View>
+        <DriverStatusCard location={null} />
       </View>
     );
   }
 
-  const region: Region = {
+  const initialRegion: Region = {
     latitude: location.lat,
     longitude: location.lng,
     latitudeDelta: 0.01,
@@ -368,8 +405,9 @@ function LiveMapSection({
   return (
     <View>
       <MapView
+        ref={mapRef}
         style={styles.map}
-        region={region}
+        initialRegion={initialRegion}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
@@ -380,16 +418,7 @@ function LiveMapSection({
           title="Driver Location"
         />
       </MapView>
-      <View style={styles.mapLabel}>
-        <Text style={styles.mapLabelDot}>🟢</Text>
-        <Text style={styles.mapLabelText}>Driver is on the way</Text>
-        <Text style={styles.mapLabelTime}>
-          Updated {new Date(location.timestamp).toLocaleTimeString('en-IN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </Text>
-      </View>
+      <DriverStatusCard location={location} />
     </View>
   );
 }
@@ -796,23 +825,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
-  mapLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  driverCard: {
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 12,
     marginTop: 10,
-    paddingHorizontal: 4,
   },
-  mapLabelDot: { fontSize: 12 },
-  mapLabelText: {
+  driverCardText: {
     fontSize: 13,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-    flex: 1,
-  },
-  mapLabelTime: {
-    fontSize: 11,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   mapPlaceholder: {
     height: 140,

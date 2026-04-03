@@ -290,7 +290,7 @@ export default function JobDetailScreen() {
             stopTracking();
             try {
               await transitionPhase(id!, 'transit');
-              Alert.alert('Success', 'Shipment marked as picked up. It is now In Transit.', [
+              Alert.alert('Success', 'Shipment marked as picked up. GPS tracking has been stopped. It is now In Transit.', [
                 { text: 'OK', onPress: () => router.back() },
               ]);
             } catch (e: any) {
