@@ -18,6 +18,7 @@ import { Colors } from '@/constants/colors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getAllUsers, createUser, updateUser, deleteUser } from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
 import type { User, UserRole } from '@/types';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -116,6 +117,7 @@ const EMPTY_ACTION: ActionSheetState = {
 };
 
 export default function TeamScreen() {
+  const { logout } = useAuth();
   const [employees, setEmployees] = useState<User[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'employees' | 'customers'>('employees');
@@ -273,6 +275,15 @@ export default function TeamScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.addBtn, styles.addBtnCustomer]} onPress={() => openAdd('customer')}>
             <Text style={[styles.addBtnText, styles.addBtnCustomerText]}>+ Customer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.signOutBtn}
+            onPress={() => Alert.alert('Sign Out', 'Are you sure?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Sign Out', style: 'destructive', onPress: logout },
+            ])}
+          >
+            <Text style={styles.signOutBtnText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -496,6 +507,18 @@ const styles = StyleSheet.create({
   },
   addBtnCustomerText: {
     color: '#FFFFFF',
+  },
+  signOutBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 8,
+  },
+  signOutBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   tabBar: {
     flexDirection: 'row',

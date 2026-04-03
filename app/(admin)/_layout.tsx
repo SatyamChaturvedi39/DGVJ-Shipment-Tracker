@@ -65,6 +65,7 @@ export default function AdminLayout() {
         name="team"
         options={{
           title: 'Team',
+          headerShown: false,
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>&#128101;</Text>,
         }}
       />
