@@ -10,6 +10,8 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  authError: string | null;
+  clearAuthError: () => void;
   login: (phone: string) => Promise<void>;
   verifyOTP: (code: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -20,6 +22,8 @@ export const AuthContext = createContext<AuthState>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  authError: null,
+  clearAuthError: () => {},
   login: async () => {},
   verifyOTP: async () => {},
   logout: async () => {},
@@ -34,20 +38,7 @@ function createMockUser(phone: string, role: UserRole): User {
     role,
     company_name: role === 'customer' ? 'Test Company' : null,
     firebase_uid: 'dev-uid-123',
-    created_at: new Date().toISOString(),
-  };
-}
-
-function createUserFromFirebase(firebaseUser: { uid: string; phoneNumber: string | null }): User {
-  // Phase 1 fallback — role will come from Supabase in Phase 2.
-  // Defaults to 'customer' so any verified phone number can enter the app.
-  return {
-    id: firebaseUser.uid,
-    phone: firebaseUser.phoneNumber ?? '',
-    name: 'User',
-    role: 'customer',
-    company_name: null,
-    firebase_uid: firebaseUser.uid,
+    is_active: true,
     created_at: new Date().toISOString(),
   };
 }
@@ -56,6 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingPhone, setPendingPhone] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const clearAuthError = useCallback(() => setAuthError(null), []);
 
   useEffect(() => {
     if (Config.DEV_MOCK_AUTH) {
@@ -66,12 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Fetch role from backend (Phase 2 will have real Supabase data)
           const profile = await getMe();
           setUser(profile);
-        } catch {
-          // Backend not running — fall back to a basic user derived from Firebase
-          setUser(createUserFromFirebase(firebaseUser));
+        } catch (e: any) {
+          if (e?.response?.status === 403) {
+            // Phone not pre-registered or account deactivated — reject login
+            await signOutService();
+            setAuthError(
+              e?.response?.data?.detail ||
+              'Access denied. Contact Digvijay Express to get access.'
+            );
+          }
+          setUser(null);
         }
       } else {
         setUser(null);
@@ -111,6 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        authError,
+        clearAuthError,
         login,
         verifyOTP,
         logout,

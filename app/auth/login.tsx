@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
 
 export default function LoginScreen() {
-  const { login, setDevRole } = useAuth();
+  const { login, setDevRole, authError, clearAuthError } = useAuth();
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,10 +53,15 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+          {authError ? (
+            <View style={styles.authErrorBox}>
+              <Text style={styles.authErrorText}>{authError}</Text>
+            </View>
+          ) : null}
           <Input
             label="Phone Number"
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(t) => { setPhone(t); if (authError) clearAuthError(); }}
             placeholder="9876543210"
             keyboardType="phone-pad"
             prefix="+91"
@@ -150,6 +155,18 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 8,
+  },
+  authErrorBox: {
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.error,
+  },
+  authErrorText: {
+    color: Colors.error,
+    fontSize: 14,
+    textAlign: 'center',
   },
   devSection: {
     marginTop: 40,

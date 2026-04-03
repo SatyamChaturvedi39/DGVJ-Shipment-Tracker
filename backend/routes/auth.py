@@ -13,8 +13,10 @@ class VerifyTokenRequest(BaseModel):
 @router.post("/verify-token")
 def verify_token(body: VerifyTokenRequest):
     """
-    Verify a Firebase ID token. Creates the user in Supabase if first login.
-    Returns the full user object including role.
+    Closed auth flow:
+    1. Look up by firebase_uid → returning user
+    2. Look up by phone WHERE firebase_uid IS NULL → first login of pre-registered user, bind uid
+    3. Neither found → 403 (phone not pre-registered by admin)
     """
     try:
         decoded = firebase_auth.verify_id_token(body.firebase_token)
@@ -24,22 +26,27 @@ def verify_token(body: VerifyTokenRequest):
     firebase_uid = decoded["uid"]
     phone = decoded.get("phone_number", "")
 
-    # Check if user already exists
+    # Step 1 — returning user (firebase_uid already bound)
     result = supabase.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
-
     if result.data:
-        return result.data[0]
+        user = result.data[0]
+        if not user.get("is_active", True):
+            raise HTTPException(status_code=403, detail="Your account has been deactivated. Contact Digvijay Express.")
+        return user
 
-    # New user — create with default role 'customer'
-    new_user = {
-        "firebase_uid": firebase_uid,
-        "phone": phone,
-        "name": None,
-        "role": "customer",
-        "company_name": None,
-    }
-    created = supabase.table("users").insert(new_user).execute()
-    if not created.data:
-        raise HTTPException(status_code=500, detail="Failed to create user")
+    # Step 2 — first login of a pre-registered user (phone exists, no uid yet)
+    pre = supabase.table("users").select("*").eq("phone", phone).is_("firebase_uid", "null").execute()
+    if pre.data:
+        user = pre.data[0]
+        if not user.get("is_active", True):
+            raise HTTPException(status_code=403, detail="Your account has been deactivated. Contact Digvijay Express.")
+        # Bind the firebase_uid to the pre-registered record
+        supabase.table("users").update({"firebase_uid": firebase_uid}).eq("id", user["id"]).execute()
+        user["firebase_uid"] = firebase_uid
+        return user
 
-    return created.data[0]
+    # Step 3 — unknown phone, not pre-registered
+    raise HTTPException(
+        status_code=403,
+        detail="Your number is not registered. Contact Digvijay Express to get access."
+    )

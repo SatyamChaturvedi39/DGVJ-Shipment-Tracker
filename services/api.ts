@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Config } from '@/constants/config';
 import { getIdToken } from './auth';
-import type { User, Shipment, ShipmentDetail, StatusEvent, LocationUpdate } from '@/types';
+import type { User, UserRole, Shipment, ShipmentDetail, StatusEvent, LocationUpdate } from '@/types';
 
 const api = axios.create({
   baseURL: Config.API_BASE_URL,
@@ -48,6 +48,33 @@ export async function getEmployees(): Promise<User[]> {
 export async function getCustomers(): Promise<User[]> {
   const { data } = await api.get('/users/customers');
   return data ?? [];
+}
+
+export async function getAllUsers(): Promise<User[]> {
+  const { data } = await api.get('/users');
+  return data ?? [];
+}
+
+export async function createUser(payload: {
+  name: string;
+  phone: string;
+  role: UserRole;
+  company_name?: string;
+}): Promise<User> {
+  const { data } = await api.post('/users', payload);
+  return data;
+}
+
+export async function updateUser(
+  id: string,
+  payload: { name?: string; role?: UserRole; company_name?: string; is_active?: boolean }
+): Promise<User> {
+  const { data } = await api.put(`/users/${id}`, payload);
+  return data;
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  await api.delete(`/users/${id}`);
 }
 
 // ─── Shipments ───────────────────────────────────────────────────────────────

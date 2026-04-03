@@ -10,7 +10,8 @@ export interface User {
   name: string;
   role: UserRole;
   company_name: string | null;
-  firebase_uid: string;
+  firebase_uid: string | null;
+  is_active: boolean;
   created_at: string;
 }
 

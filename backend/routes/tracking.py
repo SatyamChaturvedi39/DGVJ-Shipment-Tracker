@@ -19,7 +19,7 @@ PHASE_EVENT_MAP = {
 async def transition_phase(
     shipment_id: str,
     body: PhaseTransitionRequest,
-    user: dict = Depends(require_role("admin")),
+    user: dict = Depends(require_role("admin", "employee")),
 ):
     result = supabase.table("shipments").select("*").eq("id", shipment_id).execute()
     if not result.data:

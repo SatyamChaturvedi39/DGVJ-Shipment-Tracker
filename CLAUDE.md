@@ -271,6 +271,7 @@ After changing `.env`, always restart with `npx expo start --clear` — env vars
 | 5 | ✅ DONE | Customer screens + tracking UI (live map for pickup/delivery phases) |
 | 6 | ✅ DONE | Testing: 30 pytest tests green, 0 TypeScript errors, integration check script, manual test comments |
 | 7 | ✅ DONE | Polish + production deployment: Render config, EAS build, env var cleanup, v1.0.0 tag |
+| 8 | ✅ DONE | Closed auth system + admin user management Team screen |
 
 ---
 
@@ -327,14 +328,11 @@ eas build --profile production --platform android
 - **Current workaround:** Use dev mode role selector (`EXPO_PUBLIC_DEV_MOCK_AUTH=true`) to bypass OTP entirely during development.
 - **To fix for production:** Either (a) set up Firebase test phone numbers in Firebase Console for testing, or (b) switch to `@react-native-firebase` when doing a custom dev build (EAS Build).
 
-### 2. New users are always created as 'customer' role
-- **Root cause:** `backend/routes/auth.py` `POST /auth/verify-token` inserts all new users with `role: 'customer'` hardcoded.
-- **To fix:** Manually update roles in Supabase SQL Editor: `UPDATE users SET role = 'admin' WHERE phone = '+91XXXXXXXXXX';`
+### 2. ~~New users are always created as 'customer' role~~ — FIXED in Phase 8
+- **Fix:** Closed auth system — admin pre-registers users via Team screen. Unknown phones get 403. No auto-creation.
 
-### 3. Employee phase transitions are admin-only in backend
-- **Root cause:** `PUT /shipments/{id}/phase` in `tracking.py` uses `require_role("admin")`.
-- **Current state:** Works in dev mode (dev-mock-token → admin). Will return 403 for real employee users.
-- **To fix for production:** Change `require_role("admin")` to `require_role("admin", "employee")` in `backend/routes/tracking.py`, and add access checks (employee must be assigned to the shipment).
+### 3. ~~Employee phase transitions are admin-only in backend~~ — FIXED in Phase 8
+- **Fix:** `require_role("admin", "employee")` in `tracking.py` line 22.
 
 ### 4. `POST /location/update` skipped in dev mode
 - **Root cause:** Requires employee role; dev-mock-token returns admin → 403.
@@ -648,3 +646,46 @@ npm install <package> --legacy-peer-deps
 ### app.json changes (Phase 7)
 - `android.versionCode: 1` — required for Play Store; increment on each APK/AAB release
 - `splash.backgroundColor` changed from `#1B2A4A` → `#C62828` (brand red) for consistent branding
+
+---
+
+## Key implementation notes (from Phase 8)
+
+### Closed auth system (`backend/routes/auth.py`)
+3-step flow in `POST /auth/verify-token`:
+1. Look up by `firebase_uid` → returning user (+ is_active check)
+2. Look up by `phone WHERE firebase_uid IS NULL` → first login of pre-registered user; binds uid (+ is_active check)
+3. Neither found → `403 "Your number is not registered. Contact Digvijay Express to get access."`
+
+**Critical supabase-py v2 syntax for IS NULL:**
+```python
+supabase.table("users").select("*").eq("phone", phone).is_("firebase_uid", "null").execute()
+```
+Use string `"null"` — **not** Python `None`.
+
+**Required Supabase migration (already run):**
+```sql
+ALTER TABLE users ALTER COLUMN firebase_uid DROP NOT NULL;
+```
+
+### Admin Team screen (`app/(admin)/team.tsx`)
+- 4th tab in admin layout (after Archive)
+- Two sub-tabs: Employees (N) | Customers (N)
+- Add Employee / Add Customer buttons in header — opens bottom sheet modal
+- Phone validated as exactly 10 digits; stored as `+91` + digits
+- 409 from API → shows "This phone number is already registered" inline
+- Tap a user row → action sheet: Edit Details / Deactivate|Reactivate / Delete (soft delete)
+- Inactive users shown at 0.6 opacity
+
+### `GET /users` endpoint ordering
+Returns all non-admin users ordered by role then name. The Team screen filters client-side by `u.role`.
+
+### `authError` in AuthContext
+- New `authError: string | null` state exposed from `AuthContext`
+- Set when `getMe()` returns 403 (unknown/deactivated phone) — Firebase session is signed out via `signOutService()`
+- Displayed as red banner on login screen above the phone input
+- Cleared when user edits the phone field (`clearAuthError()`)
+
+### `is_active` field in User type
+- Added to `types/index.ts` User interface (`is_active: boolean`)
+- `firebase_uid` changed from `string` to `string | null` to accommodate pre-registered users
