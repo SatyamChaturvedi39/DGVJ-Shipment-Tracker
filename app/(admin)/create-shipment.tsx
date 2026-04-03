@@ -263,6 +263,7 @@ interface FormErrors {
   destination?: string;
   transport_number?: string;
   eta_date?: string;
+  eta_time?: string;
 }
 
 export default function CreateShipment() {
@@ -317,7 +318,14 @@ export default function CreateShipment() {
     if (!origin.trim()) e.origin = 'Origin is required';
     if (!destination.trim()) e.destination = 'Destination is required';
     if (!transportNumber.trim()) e.transport_number = 'Transport number is required';
-    if (etaDate && !/^\d{4}-\d{2}-\d{2}$/.test(etaDate)) e.eta_date = 'Use format YYYY-MM-DD';
+    if (!etaDate.trim()) {
+      e.eta_date = 'ETA date is required';
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(etaDate.trim())) {
+      e.eta_date = 'Use format YYYY-MM-DD (e.g. 2026-04-15)';
+    }
+    if (etaTime.trim() && !/^\d{2}:\d{2}$/.test(etaTime.trim())) {
+      e.eta_time = 'Use format HH:MM (e.g. 14:30)';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -418,7 +426,7 @@ export default function CreateShipment() {
         <Field
           label="ETA Date"
           value={etaDate}
-          onChange={setEtaDate}
+          onChange={(v) => { setEtaDate(v); if (errors.eta_date) setErrors(prev => ({ ...prev, eta_date: undefined })); }}
           placeholder="YYYY-MM-DD"
           hint="Format: YYYY-MM-DD"
           error={errors.eta_date}
@@ -426,9 +434,10 @@ export default function CreateShipment() {
         <Field
           label="ETA Time (optional)"
           value={etaTime}
-          onChange={setEtaTime}
+          onChange={(v) => { setEtaTime(v); if (errors.eta_time) setErrors(prev => ({ ...prev, eta_time: undefined })); }}
           placeholder="HH:MM"
           hint="Format: HH:MM (24h)"
+          error={errors.eta_time}
         />
 
         {/* Assignment */}
