@@ -210,11 +210,15 @@ export default function JobDetailScreen() {
   const employeeRole: 'pickup' | 'delivery' =
     shipment?.delivery_employee_id === userId ? 'delivery' : 'pickup';
 
-  // Show GPS section only when phase matches this employee's role
+  // Show GPS section when phase matches this employee's role.
+  // In dev mode: employeeRole can't be reliably determined (admin user is returned),
+  // so show GPS for any active phase.
   const showGps =
     shipment !== null &&
-    ((employeeRole === 'pickup' && shipment.current_phase === 'pickup') ||
-      (employeeRole === 'delivery' && shipment.current_phase === 'delivery'));
+    (Config.DEV_MOCK_AUTH
+      ? shipment.current_phase === 'pickup' || shipment.current_phase === 'delivery'
+      : (employeeRole === 'pickup' && shipment.current_phase === 'pickup') ||
+        (employeeRole === 'delivery' && shipment.current_phase === 'delivery'));
 
   // ── GPS tracking ─────────────────────────────────────────────────────────
 
@@ -466,8 +470,12 @@ export default function JobDetailScreen() {
         <View style={styles.actionsSection}>
           <Text style={styles.actionsSectionTitle}>Actions</Text>
 
-          {/* Mark as Picked Up — pickup driver only, phase = pickup */}
-          {employeeRole === 'pickup' && shipment.current_phase === 'pickup' && (
+          {/* Mark as Picked Up — pickup driver, phase = pickup
+              In dev mode: employeeRole is always 'pickup' (admin user), so just check phase */}
+          {(Config.DEV_MOCK_AUTH
+            ? shipment.current_phase === 'pickup'
+            : employeeRole === 'pickup' && shipment.current_phase === 'pickup'
+          ) && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionBtnAmber, transitioning && styles.actionBtnDisabled]}
               onPress={handleMarkPickedUp}
@@ -482,8 +490,12 @@ export default function JobDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Mark as Delivered — delivery driver only, phase = delivery */}
-          {employeeRole === 'delivery' && shipment.current_phase === 'delivery' && (
+          {/* Mark as Delivered — delivery driver, phase = delivery
+              In dev mode: show for any delivery-phase shipment since role check can't be done */}
+          {(Config.DEV_MOCK_AUTH
+            ? shipment.current_phase === 'delivery'
+            : employeeRole === 'delivery' && shipment.current_phase === 'delivery'
+          ) && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionBtnGreen, transitioning && styles.actionBtnDisabled]}
               onPress={handleMarkDelivered}
