@@ -16,6 +16,7 @@ import { Config } from '@/constants/config';
 import { getShipment, transitionPhase, updateLocation } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { ShipmentDetail, StatusEvent, ShipmentPhase } from '@/types';
+import { formatEventDate, formatFullDate } from '@/utils/formatDate';
 
 // MANUAL TEST REQUIRED: GPS tracking section appears for correct phase
 //   1. Open a shipment in "Pickup" phase as the pickup employee
@@ -121,13 +122,7 @@ function TimelineItem({ event, isLast }: { event: StatusEvent; isLast: boolean }
         </Text>
         {event.description ? <Text style={tl.desc}>{event.description}</Text> : null}
         <Text style={tl.time}>
-          {new Date(event.timestamp).toLocaleString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {event.is_completed ? formatEventDate(event.timestamp) : 'Pending'}
         </Text>
       </View>
     </View>
@@ -512,13 +507,7 @@ export default function JobDetailScreen() {
           <View>
             <Text style={styles.completedBannerTitle}>Shipment Completed</Text>
             <Text style={styles.completedBannerDate}>
-              {new Date(shipment.completed_at).toLocaleString('en-IN', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {formatFullDate(shipment.completed_at)}
             </Text>
           </View>
         </View>

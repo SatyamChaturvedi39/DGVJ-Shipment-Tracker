@@ -34,8 +34,9 @@ async def get_current_user(
 ) -> dict:
     token = credentials.credentials
 
-    # Dev mock token — skip real verification
-    if token == "dev-mock-token" or token.startswith("dev-mock-token:"):
+    # Dev mock token — skip real verification (disabled in production)
+    is_production = os.getenv("ENVIRONMENT") == "production"
+    if not is_production and (token == "dev-mock-token" or token.startswith("dev-mock-token:")):
         phone = token.split(":", 1)[1] if ":" in token else None
         if phone:
             result = supabase.table("users").select("*").eq("phone", phone).execute()
@@ -75,3 +76,36 @@ def require_role(*roles: str):
             raise HTTPException(status_code=403, detail=f"Requires role: {', '.join(roles)}")
         return user
     return check
+
+
+async def verify_token_string(token: str) -> dict:
+    """Verify a raw token string and return the user dict. Used by WebSocket auth."""
+    is_production = os.getenv("ENVIRONMENT") == "production"
+    if not is_production and (token == "dev-mock-token" or token.startswith("dev-mock-token:")):
+        phone = token.split(":", 1)[1] if ":" in token else None
+        if phone:
+            result = supabase.table("users").select("*").eq("phone", phone).execute()
+            if result.data:
+                user = result.data[0]
+                if not user.get("is_active", True):
+                    raise ValueError("Account is inactive")
+                return user
+            raise ValueError("Phone not registered")
+        result = supabase.table("users").select("*").eq("role", "admin").limit(1).execute()
+        if result.data:
+            return result.data[0]
+        raise ValueError("No admin user found for dev mock token")
+
+    try:
+        decoded = firebase_auth.verify_id_token(token)
+        firebase_uid = decoded["uid"]
+    except Exception as e:
+        raise ValueError(f"Invalid or expired token: {e}")
+
+    result = supabase.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
+    if not result.data:
+        raise ValueError("User not found")
+    user = result.data[0]
+    if not user.get("is_active", True):
+        raise ValueError("Account is inactive")
+    return user

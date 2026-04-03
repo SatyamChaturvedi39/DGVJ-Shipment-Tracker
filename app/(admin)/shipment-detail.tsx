@@ -15,6 +15,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { getShipment, getEmployees, addStatusEvent, transitionPhase } from '@/services/api';
 import type { ShipmentDetail, StatusEvent, User, ShipmentPhase } from '@/types';
+import { formatEventDate, formatFullDate } from '@/utils/formatDate';
 
 // MANUAL TEST REQUIRED: Shipment detail shows status timeline
 //   1. Open any active shipment from the Dashboard
@@ -131,10 +132,7 @@ function TimelineItem({
           <Text style={timeline.desc}>{event.description}</Text>
         ) : null}
         <Text style={timeline.time}>
-          {new Date(event.timestamp).toLocaleString('en-IN', {
-            day: 'numeric', month: 'short', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-          })}
+          {event.is_completed ? formatEventDate(event.timestamp) : 'Pending'}
         </Text>
       </View>
     </View>
@@ -469,10 +467,7 @@ export default function ShipmentDetailScreen() {
             <View>
               <Text style={styles.completedBannerTitle}>Shipment Completed</Text>
               <Text style={styles.completedBannerDate}>
-                {new Date(shipment.completed_at).toLocaleString('en-IN', {
-                  day: 'numeric', month: 'long', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
-                })}
+                {formatFullDate(shipment.completed_at)}
               </Text>
             </View>
           </View>

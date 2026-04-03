@@ -14,7 +14,9 @@ import MapView, { Marker, Region } from 'react-native-maps';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
 import { getShipment, getLatestLocation } from '@/services/api';
+import { getIdToken } from '@/services/auth';
 import type { ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate } from '@/types';
+import { formatEventDate, formatFullDate, isETAPast } from '@/utils/formatDate';
 
 // MANUAL TEST REQUIRED: Tracking screen shows correct phase UI
 //   Open the tracking screen for a shipment and verify the correct section is shown:
@@ -186,15 +188,7 @@ function TimelineItem({ event, isLast }: { event: StatusEvent; isLast: boolean }
         <Text style={[tl.label, isPending && tl.labelPending]}>{event.label}</Text>
         {event.description ? <Text style={tl.desc}>{event.description}</Text> : null}
         <Text style={tl.time}>
-          {event.is_completed
-            ? new Date(event.timestamp).toLocaleString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : 'Pending'}
+          {event.is_completed ? formatEventDate(event.timestamp) : 'Pending'}
         </Text>
       </View>
     </View>
@@ -459,10 +453,7 @@ function TransitSection({ shipment }: { shipment: ShipmentDetail }) {
                 <Text style={tl.label}>{ev.label}</Text>
                 {ev.description ? <Text style={tl.desc}>{ev.description}</Text> : null}
                 <Text style={tl.time}>
-                  {new Date(ev.timestamp).toLocaleString('en-IN', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  })}
+                  {ev.is_completed ? formatEventDate(ev.timestamp) : 'Pending'}
                 </Text>
               </View>
             </View>
@@ -505,27 +496,37 @@ export default function ShipmentTrackingScreen() {
   useEffect(() => {
     if (!id) return;
 
-    const ws = new WebSocket(`${Config.WS_BASE_URL}/ws/${id}`);
-    wsRef.current = ws;
+    let ws: WebSocket;
+    (async () => {
+      // Pass auth token as query param so the server can verify the connection
+      const token = await getIdToken();
+      const wsUrl = token
+        ? `${Config.WS_BASE_URL}/ws/${id}?token=${encodeURIComponent(token)}`
+        : `${Config.WS_BASE_URL}/ws/${id}`;
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'phase_change' || data.type === 'status_update') {
-          load();
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'phase_change' || data.type === 'status_update') {
+            load();
+          }
+          // 'location' type is handled inside LiveMapSection via wsRef
+        } catch {
+          // ignore
         }
-        // 'location' type is handled inside LiveMapSection via wsRef
-      } catch {
-        // ignore
-      }
-    };
+      };
 
-    ws.onerror = () => {
-      // WS errors are non-fatal — REST polling handles updates
-    };
+      ws.onerror = () => {
+        // WS errors are non-fatal — REST polling handles updates
+      };
+    })();
 
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
       wsRef.current = null;
     };
   }, [id, load]);
@@ -579,21 +580,23 @@ export default function ShipmentTrackingScreen() {
             <Text style={styles.deliveredTitle}>Shipment Delivered</Text>
             {shipment.completed_at ? (
               <Text style={styles.deliveredDate}>
-                {new Date(shipment.completed_at).toLocaleString('en-IN', {
-                  day: 'numeric', month: 'long', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
-                })}
+                {formatFullDate(shipment.completed_at)}
               </Text>
             ) : null}
           </View>
         </View>
       ) : (
         shipment.eta_date ? (
-          <View style={styles.etaCard}>
-            <Text style={styles.etaCardLabel}>Estimated Delivery</Text>
+          <View style={[styles.etaCard, isETAPast(shipment.eta_date) && styles.etaCardDelayed]}>
+            <Text style={styles.etaCardLabel}>
+              {isETAPast(shipment.eta_date) ? 'Estimated Delivery — Delayed' : 'Estimated Delivery'}
+            </Text>
             <Text style={styles.etaCardDate}>{shipment.eta_date}</Text>
             {shipment.eta_time ? (
               <Text style={styles.etaCardTime}>{shipment.eta_time}</Text>
+            ) : null}
+            {isETAPast(shipment.eta_date) ? (
+              <Text style={styles.etaDelayNote}>Contact Digvijay Express for updates</Text>
             ) : null}
           </View>
         ) : null
@@ -728,6 +731,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.textSecondary,
+  },
+  etaCardDelayed: {
+    borderWidth: 1.5,
+    borderColor: Colors.warning,
+    backgroundColor: '#FFFDE7',
+  },
+  etaDelayNote: {
+    fontSize: 12,
+    color: Colors.warning,
+    fontWeight: '600',
+    marginTop: 6,
   },
 
   // Delivered card

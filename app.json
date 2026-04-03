@@ -48,7 +48,9 @@
           "locationAlwaysAndWhenInUsePermission": "Digvijay BLR needs your location to track shipment delivery."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ]
   }
 }

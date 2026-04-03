@@ -25,6 +25,21 @@ async def transition_phase(
     if not result.data:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
+    shipment = result.data[0]
+
+    # Employees can only advance phases for shipments they're assigned to,
+    # and only the phase that corresponds to their role.
+    if user["role"] == "employee":
+        uid = user["id"]
+        is_pickup = shipment.get("pickup_employee_id") == uid
+        is_delivery = shipment.get("delivery_employee_id") == uid
+        if not is_pickup and not is_delivery:
+            raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
+        if body.phase == "transit" and not is_pickup:
+            raise HTTPException(status_code=403, detail="Only the pickup driver can mark as In Transit")
+        if body.phase == "completed" and not is_delivery:
+            raise HTTPException(status_code=403, detail="Only the delivery driver can mark as Delivered")
+
     updates: dict = {"current_phase": body.phase}
     if body.phase == "completed":
         updates["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -38,6 +53,7 @@ async def transition_phase(
             supabase.table("status_events")
             .select("id")
             .eq("shipment_id", shipment_id)
+            .order("sort_order")
             .order("created_at")
             .execute()
         )
@@ -82,7 +98,8 @@ async def add_status_event(
         "timestamp": created["created_at"],
     })
 
-    return created
+    # Map created_at → timestamp so frontend StatusEvent type is satisfied
+    return {**created, "timestamp": created["created_at"]}
 
 
 @router.post("/location/update")
@@ -90,6 +107,15 @@ async def update_location(
     body: LocationUpdateRequest,
     user: dict = Depends(require_role("employee")),
 ):
+    # Verify employee is assigned to this shipment
+    shipment_result = supabase.table("shipments").select("pickup_employee_id,delivery_employee_id").eq("id", body.shipment_id).execute()
+    if not shipment_result.data:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    s = shipment_result.data[0]
+    uid = user["id"]
+    if uid != s.get("pickup_employee_id") and uid != s.get("delivery_employee_id"):
+        raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
+
     row = {
         "shipment_id": body.shipment_id,
         "employee_id": user["id"],

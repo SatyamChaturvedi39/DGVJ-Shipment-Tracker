@@ -8,13 +8,14 @@ from models.shipment import CreateShipmentRequest, UpdateShipmentRequest
 router = APIRouter(prefix="/shipments", tags=["shipments"])
 
 # Status event templates — created for every new shipment
+# sort_order drives display order; admin-added events default to 99 (always last)
 INITIAL_STATUS_EVENTS = [
-    {"label": "Picked Up", "description": "Goods picked up from sender"},
-    {"label": "Handed to Carrier", "description": "Goods handed to railway/airport"},
-    {"label": "In Transit", "description": "Goods in transit"},
-    {"label": "Arriving", "description": "Shipment arriving at destination city"},
-    {"label": "Out for Delivery", "description": "Goods out for delivery to recipient"},
-    {"label": "Delivered", "description": "Goods delivered to recipient"},
+    {"label": "Picked Up",        "description": "Goods picked up from sender",              "sort_order": 1},
+    {"label": "Handed to Carrier","description": "Goods handed to railway/airport",          "sort_order": 2},
+    {"label": "In Transit",       "description": "Goods in transit",                          "sort_order": 3},
+    {"label": "Arriving",         "description": "Shipment arriving at destination city",     "sort_order": 4},
+    {"label": "Out for Delivery", "description": "Goods out for delivery to recipient",       "sort_order": 5},
+    {"label": "Delivered",        "description": "Goods delivered to recipient",              "sort_order": 6},
 ]
 
 
@@ -51,7 +52,13 @@ def create_shipment(body: CreateShipmentRequest, user: dict = Depends(require_ro
 
     # Create 6 initial status events (all not completed)
     events = [
-        {"shipment_id": shipment_id, "label": e["label"], "description": e["description"], "is_completed": False}
+        {
+            "shipment_id": shipment_id,
+            "label": e["label"],
+            "description": e["description"],
+            "is_completed": False,
+            "sort_order": e["sort_order"],
+        }
         for e in INITIAL_STATUS_EVENTS
     ]
     supabase.table("status_events").insert(events).execute()
@@ -96,9 +103,19 @@ def get_shipment(shipment_id: str, user: dict = Depends(get_current_user)):
     shipment = result.data[0]
     _assert_access(user, shipment, shipment_id)
 
-    # Attach status events
-    events = supabase.table("status_events").select("*").eq("shipment_id", shipment_id).order("created_at").execute()
-    shipment["status_events"] = events.data
+    # Attach status events — sort by sort_order first, then created_at as tiebreaker
+    events = (
+        supabase.table("status_events")
+        .select("*")
+        .eq("shipment_id", shipment_id)
+        .order("sort_order")
+        .order("created_at")
+        .execute()
+    )
+    # Map created_at → timestamp so frontend StatusEvent type is satisfied
+    shipment["status_events"] = [
+        {**e, "timestamp": e["created_at"]} for e in events.data
+    ]
 
     return shipment
 
