@@ -11,7 +11,7 @@ const mockAuthEnabled = DEV && mockAuthEnv !== 'false';
 // In production build: read EXPO_PUBLIC_PROD_API_URL (must be set before running eas build).
 const apiUrl = DEV
   ? (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000')
-  : (process.env.EXPO_PUBLIC_PROD_API_URL ?? 'https://digvijay-blr.onrender.com');
+  : (process.env.EXPO_PUBLIC_PROD_API_URL ?? 'https://digvijay-blr-api.onrender.com');
 
 // Derive WS URL from API URL by replacing http(s):// with ws(s)://
 const derivedWsUrl = apiUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');

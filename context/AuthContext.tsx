@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/services/firebase';
 import { sendOTP, verifyOTP as verifyOTPService, signOut as signOutService, getMockPhone } from '@/services/auth';
-import { getMe } from '@/services/api';
+import { getMe, verifyToken } from '@/services/api';
 import { Config } from '@/constants/config';
 import type { User, UserRole } from '@/types';
 
@@ -60,7 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const profile = await getMe();
+          const token = await firebaseUser.getIdToken();
+          const profile = await verifyToken(token);
           setUser(profile);
         } catch (e: any) {
           if (e?.response?.status === 403) {
@@ -70,6 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               e?.response?.data?.detail ||
               'Access denied. Contact Digvijay Express to get access.'
             );
+          } else {
+            await signOutService();
+            setAuthError('Connection timed out or server is waking up. Please verify the OTP again.');
           }
           setUser(null);
         }

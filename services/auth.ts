@@ -66,18 +66,36 @@ export async function sendOTP(phoneNumber: string): Promise<void> {
     mockPhone = phoneNumber;
     return;
   }
+
+  // Detect whether the native @react-native-firebase module is available.
+  // It is present in EAS builds but absent in Expo Go.
+  let nativeAvailable = false;
   try {
-    // In EAS production builds: use native Firebase SDK for real SMS
-    await sendOTPNative(phoneNumber);
-  } catch (e: unknown) {
-    // Fallback: native module unavailable (Expo Go) — try JS SDK with fakeRecaptcha
-    // This only works with Firebase test phone numbers
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const rnfirebase = require('@react-native-firebase/auth');
+    nativeAvailable = !!(rnfirebase.default ?? rnfirebase);
+  } catch {
+    nativeAvailable = false;
+  }
+
+  if (nativeAvailable) {
+    // Native build (EAS) — use native Firebase SDK directly.
+    // Do NOT fall back to JS SDK; it cannot send real SMS.
+    try {
+      await sendOTPNative(phoneNumber);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[Firebase Native] sendOTP failed:', msg);
+      throw new Error(msg || 'Failed to send OTP via native Firebase');
+    }
+  } else {
+    // Expo Go — use JS SDK with fakeRecaptcha (only works with Firebase test numbers)
     try {
       confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, fakeRecaptchaVerifier);
-    } catch (e2: unknown) {
-      const msg = e2 instanceof Error ? e2.message : String(e2);
-      console.error('[Firebase] sendOTP failed:', msg);
-      throw e2;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[Firebase JS] sendOTP failed:', msg);
+      throw e;
     }
   }
 }
