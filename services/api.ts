@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Config } from '@/constants/config';
 import { getIdToken } from './auth';
-import type { User, UserRole, Shipment, ShipmentDetail, StatusEvent, LocationUpdate } from '@/types';
+import type { User, UserRole, Shipment, ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate } from '@/types';
 
 const api = axios.create({
   baseURL: Config.API_BASE_URL,
@@ -121,8 +121,6 @@ export async function deleteShipment(id: string): Promise<void> {
 }
 
 // ─── Tracking ────────────────────────────────────────────────────────────────
-
-export type ShipmentPhase = 'pickup' | 'transit' | 'delivery' | 'completed';
 
 export async function transitionPhase(
   shipmentId: string,

@@ -32,13 +32,14 @@ import { formatEventDate, formatFullDate } from '@/utils/formatDate';
 
 // ─── Phase helpers ────────────────────────────────────────────────────────────
 
-const PHASE_ORDER: ShipmentPhase[] = ['pickup', 'transit', 'delivery', 'completed'];
+const PHASE_ORDER: ShipmentPhase[] = ['pickup', 'transit', 'handed_to_carrier', 'out_for_delivery', 'completed'];
 
 const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {
-  pickup:    { label: 'Pickup',     bg: '#FFF8E1', text: '#F57F17' },
-  transit:   { label: 'In Transit', bg: '#E3F2FD', text: '#1565C0' },
-  delivery:  { label: 'Delivery',   bg: '#FFF8E1', text: '#F57F17' },
-  completed: { label: 'Completed',  bg: '#E8F5E9', text: '#2E7D32' },
+  pickup:            { label: 'Pickup',            bg: '#FFF8E1', text: '#F57F17' },
+  transit:           { label: 'In Transit',        bg: '#E3F2FD', text: '#1565C0' },
+  handed_to_carrier: { label: 'With Carrier',      bg: '#F3E5F5', text: '#6A1B9A' },
+  out_for_delivery:  { label: 'Out for Delivery',  bg: '#FFF8E1', text: '#F57F17' },
+  completed:         { label: 'Completed',         bg: '#E8F5E9', text: '#2E7D32' },
 };
 
 function getNextPhase(current: ShipmentPhase): ShipmentPhase | null {
@@ -491,6 +492,8 @@ export default function ShipmentDetailScreen() {
                   {shipment.current_phase === 'pickup'
                     ? 'Mark as In Transit  →'
                     : shipment.current_phase === 'transit'
+                    ? `Hand to ${shipment.transport_mode === 'air' ? 'Airport' : 'Railway Station'}  →`
+                    : shipment.current_phase === 'handed_to_carrier'
                     ? 'Mark as Out for Delivery  →'
                     : 'Mark as Delivered  ✓'}
                 </Text>

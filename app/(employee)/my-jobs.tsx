@@ -27,10 +27,11 @@ import type { Shipment, ShipmentPhase } from '@/types';
 // ─── Phase badge ─────────────────────────────────────────────────────────────
 
 const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {
-  pickup:    { label: 'Pickup',     bg: '#FFF8E1', text: '#F57F17' },
-  transit:   { label: 'In Transit', bg: '#E3F2FD', text: '#1565C0' },
-  delivery:  { label: 'Delivery',   bg: '#FFF8E1', text: '#F57F17' },
-  completed: { label: 'Completed',  bg: '#E8F5E9', text: '#2E7D32' },
+  pickup:            { label: 'Pickup',           bg: '#FFF8E1', text: '#F57F17' },
+  transit:           { label: 'To Carrier',        bg: '#E3F2FD', text: '#1565C0' },
+  handed_to_carrier: { label: 'With Carrier',      bg: '#F3E5F5', text: '#6A1B9A' },
+  out_for_delivery:  { label: 'Out for Delivery',  bg: '#FFF8E1', text: '#F57F17' },
+  completed:         { label: 'Completed',         bg: '#E8F5E9', text: '#2E7D32' },
 };
 
 function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
@@ -175,12 +176,13 @@ export default function MyJobs() {
 
   const activeJobs = shipments.filter(s => {
     if (!isAssigned(s)) return false;
-    if (Config.DEV_MOCK_AUTH) {
-      return s.current_phase === 'pickup' || s.current_phase === 'delivery';
-    }
+    if (s.current_phase === 'completed') return false;
+    if (Config.DEV_MOCK_AUTH) return true;
     const role = getEmployeeRole(s, userId);
-    if (role === 'pickup') return s.current_phase === 'pickup';
-    if (role === 'delivery') return s.current_phase === 'delivery';
+    // Pickup driver acts on pickup + transit phases
+    if (role === 'pickup') return s.current_phase === 'pickup' || s.current_phase === 'transit';
+    // Delivery driver acts on handed_to_carrier + out_for_delivery phases
+    if (role === 'delivery') return s.current_phase === 'handed_to_carrier' || s.current_phase === 'out_for_delivery';
     return false;
   });
 

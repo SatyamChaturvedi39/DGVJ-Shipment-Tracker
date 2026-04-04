@@ -7,11 +7,12 @@ from websocket.manager import manager
 
 router = APIRouter(tags=["tracking"])
 
-# Which status event indexes (0-based) to mark completed per phase transition
+# Which status event indexes (0-based, sorted by sort_order) to mark completed per phase transition
 PHASE_EVENT_MAP = {
-    "transit":   [0, 1],   # Picked Up + Handed to Carrier
-    "delivery":  [2, 3],   # In Transit + Arriving
-    "completed": [4, 5],   # Out for Delivery + Delivered
+    "transit":           [0],     # Picked Up (sort_order 1)
+    "handed_to_carrier": [1, 2],  # Heading to Carrier + Handed to Carrier (sort_order 2, 3)
+    "out_for_delivery":  [3, 4],  # Picked Up from Carrier + Out for Delivery (sort_order 4, 5)
+    "completed":         [5],     # Delivered (sort_order 6)
 }
 
 
@@ -27,18 +28,19 @@ async def transition_phase(
 
     shipment = result.data[0]
 
-    # Employees can only advance phases for shipments they're assigned to,
-    # and only the phase that corresponds to their role.
+    # Employees can only advance phases for shipments they're assigned to.
+    # Pickup driver owns: pickup→transit, transit→handed_to_carrier
+    # Delivery driver owns: handed_to_carrier→out_for_delivery, out_for_delivery→completed
     if user["role"] == "employee":
         uid = user["id"]
         is_pickup = shipment.get("pickup_employee_id") == uid
         is_delivery = shipment.get("delivery_employee_id") == uid
         if not is_pickup and not is_delivery:
             raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
-        if body.phase == "transit" and not is_pickup:
-            raise HTTPException(status_code=403, detail="Only the pickup driver can mark as In Transit")
-        if body.phase == "completed" and not is_delivery:
-            raise HTTPException(status_code=403, detail="Only the delivery driver can mark as Delivered")
+        if body.phase in ("transit", "handed_to_carrier") and not is_pickup:
+            raise HTTPException(status_code=403, detail="Only the pickup driver can perform this action")
+        if body.phase in ("out_for_delivery", "completed") and not is_delivery:
+            raise HTTPException(status_code=403, detail="Only the delivery driver can perform this action")
 
     updates: dict = {"current_phase": body.phase}
     if body.phase == "completed":

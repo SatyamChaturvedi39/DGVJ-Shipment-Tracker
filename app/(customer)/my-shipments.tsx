@@ -24,18 +24,20 @@ import type { Shipment, ShipmentPhase, TransportMode } from '@/types';
 // ─── Phase config ─────────────────────────────────────────────────────────────
 
 const PHASE_BADGE: Record<ShipmentPhase, { bg: string; text: string }> = {
-  pickup:    { bg: '#FFF8E1', text: '#F57F17' },
-  transit:   { bg: '#E3F2FD', text: '#1565C0' },
-  delivery:  { bg: '#FFF8E1', text: '#F57F17' },
-  completed: { bg: '#E8F5E9', text: '#2E7D32' },
+  pickup:            { bg: '#FFF8E1', text: '#F57F17' },
+  transit:           { bg: '#E3F2FD', text: '#1565C0' },
+  handed_to_carrier: { bg: '#F3E5F5', text: '#6A1B9A' },
+  out_for_delivery:  { bg: '#FFF8E1', text: '#F57F17' },
+  completed:         { bg: '#E8F5E9', text: '#2E7D32' },
 };
 
 function getStatusLabel(shipment: Shipment): string {
   switch (shipment.current_phase) {
-    case 'pickup':    return 'Driver heading to pickup';
-    case 'transit':   return `In transit via ${shipment.transport_mode === 'air' ? 'Air' : 'Train'}`;
-    case 'delivery':  return 'Out for delivery';
-    case 'completed': return 'Delivered';
+    case 'pickup':            return 'Driver heading to pickup';
+    case 'transit':           return `Heading to ${shipment.transport_mode === 'air' ? 'airport' : 'railway station'}`;
+    case 'handed_to_carrier': return `In transit via ${shipment.transport_mode === 'air' ? 'Air' : 'Train'}`;
+    case 'out_for_delivery':  return 'Out for delivery';
+    case 'completed':         return 'Delivered';
   }
 }
 

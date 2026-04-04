@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'employee' | 'customer';
 
-export type ShipmentPhase = 'pickup' | 'transit' | 'delivery' | 'completed';
+export type ShipmentPhase = 'pickup' | 'transit' | 'handed_to_carrier' | 'out_for_delivery' | 'completed';
 
 export type TransportMode = 'train' | 'air';
 

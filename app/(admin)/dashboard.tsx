@@ -22,10 +22,11 @@ import type { Shipment, ShipmentPhase } from '@/types';
 // ─── Phase badge ─────────────────────────────────────────────────────────────
 
 const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {
-  pickup:    { label: 'Pickup',    bg: '#FFF8E1', text: '#F57F17' },
-  transit:   { label: 'In Transit', bg: '#E3F2FD', text: '#1565C0' },
-  delivery:  { label: 'Delivery',  bg: '#FFF8E1', text: '#F57F17' },
-  completed: { label: 'Completed', bg: '#E8F5E9', text: '#2E7D32' },
+  pickup:            { label: 'Pickup',           bg: '#FFF8E1', text: '#F57F17' },
+  transit:           { label: 'In Transit',       bg: '#E3F2FD', text: '#1565C0' },
+  handed_to_carrier: { label: 'With Carrier',     bg: '#F3E5F5', text: '#6A1B9A' },
+  out_for_delivery:  { label: 'Out for Delivery', bg: '#FFF8E1', text: '#F57F17' },
+  completed:         { label: 'Completed',        bg: '#E8F5E9', text: '#2E7D32' },
 };
 
 function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
@@ -52,10 +53,11 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
 // ─── Phase left-border color ─────────────────────────────────────────────────
 
 const PHASE_BORDER: Record<ShipmentPhase, string> = {
-  pickup:    '#F57F17',
-  transit:   '#1565C0',
-  delivery:  '#F57F17',
-  completed: '#2E7D32',
+  pickup:            '#F57F17',
+  transit:           '#1565C0',
+  handed_to_carrier: '#6A1B9A',
+  out_for_delivery:  '#F57F17',
+  completed:         '#2E7D32',
 };
 
 // ─── Shipment row card ───────────────────────────────────────────────────────

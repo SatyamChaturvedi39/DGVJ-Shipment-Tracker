@@ -10,12 +10,12 @@ router = APIRouter(prefix="/shipments", tags=["shipments"])
 # Status event templates — created for every new shipment
 # sort_order drives display order; admin-added events default to 99 (always last)
 INITIAL_STATUS_EVENTS = [
-    {"label": "Picked Up",        "description": "Goods picked up from sender",              "sort_order": 1},
-    {"label": "Handed to Carrier","description": "Goods handed to railway/airport",          "sort_order": 2},
-    {"label": "In Transit",       "description": "Goods in transit",                          "sort_order": 3},
-    {"label": "Arriving",         "description": "Shipment arriving at destination city",     "sort_order": 4},
-    {"label": "Out for Delivery", "description": "Goods out for delivery to recipient",       "sort_order": 5},
-    {"label": "Delivered",        "description": "Goods delivered to recipient",              "sort_order": 6},
+    {"label": "Picked Up",              "description": "Goods picked up from sender",                        "sort_order": 1},
+    {"label": "Heading to Carrier",     "description": "En route to railway station / airport",              "sort_order": 2},
+    {"label": "Handed to Carrier",      "description": "Goods handed over to railway / airline",             "sort_order": 3},
+    {"label": "Picked Up from Carrier", "description": "Goods collected from railway station / airport",     "sort_order": 4},
+    {"label": "Out for Delivery",       "description": "Goods out for delivery to recipient",                "sort_order": 5},
+    {"label": "Delivered",              "description": "Goods delivered to recipient",                       "sort_order": 6},
 ]
 
 

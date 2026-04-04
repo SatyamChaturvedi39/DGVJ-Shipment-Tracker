@@ -45,12 +45,13 @@ import { formatEventDate, formatFullDate, isETAPast } from '@/utils/formatDate';
 
 // ─── Phase progress ───────────────────────────────────────────────────────────
 
-const PHASES: ShipmentPhase[] = ['pickup', 'transit', 'delivery', 'completed'];
+const PHASES: ShipmentPhase[] = ['pickup', 'transit', 'handed_to_carrier', 'out_for_delivery', 'completed'];
 const PHASE_LABELS: Record<ShipmentPhase, string> = {
-  pickup:    'Pickup',
-  transit:   'Transit',
-  delivery:  'Delivery',
-  completed: 'Delivered',
+  pickup:            'Pickup',
+  transit:           'Transit',
+  handed_to_carrier: 'Carrier',
+  out_for_delivery:  'Delivery',
+  completed:         'Delivered',
 };
 
 function PhaseProgressBar({ currentPhase }: { currentPhase: ShipmentPhase }) {
@@ -114,7 +115,7 @@ const progress = StyleSheet.create({
   },
   step: {
     alignItems: 'center',
-    width: 60,
+    width: 48,
   },
   dot: {
     width: 16,
@@ -147,10 +148,11 @@ const progress = StyleSheet.create({
 
 function getStatusLabel(phase: ShipmentPhase, transportMode?: string): string {
   switch (phase) {
-    case 'pickup':    return 'Driver heading to pickup';
-    case 'transit':   return `In transit via ${transportMode === 'air' ? 'Air' : 'Train'}`;
-    case 'delivery':  return 'Out for delivery';
-    case 'completed': return 'Delivered';
+    case 'pickup':            return 'Driver heading to pickup';
+    case 'transit':           return `Heading to ${transportMode === 'air' ? 'airport' : 'railway station'}`;
+    case 'handed_to_carrier': return `In transit via ${transportMode === 'air' ? 'Air' : 'Train'}`;
+    case 'out_for_delivery':  return 'Out for delivery';
+    case 'completed':         return 'Delivered';
   }
 }
 
@@ -556,8 +558,8 @@ export default function ShipmentTrackingScreen() {
   }
 
   const phase = shipment.current_phase;
-  const isLiveTracking = phase === 'pickup' || phase === 'delivery';
-  const isTransit   = phase === 'transit';
+  const isLiveTracking = phase === 'pickup' || phase === 'transit' || phase === 'out_for_delivery';
+  const isHandedToCarrier = phase === 'handed_to_carrier';
   const isCompleted = phase === 'completed';
 
   return (
@@ -602,9 +604,13 @@ export default function ShipmentTrackingScreen() {
         ) : null
       )}
 
-      {/* ── Section 3: Live tracking / Transit / Completed ────────────── */}
+      {/* ── Section 3: Live tracking / Carrier transit ───────────────── */}
       {isLiveTracking && (
-        <Section title={phase === 'pickup' ? 'DRIVER LOCATION (PICKUP)' : 'DRIVER LOCATION (DELIVERY)'}>
+        <Section title={
+          phase === 'pickup'           ? 'DRIVER LOCATION (PICKUP)' :
+          phase === 'transit'          ? 'DRIVER LOCATION (HEADING TO CARRIER)' :
+                                         'DRIVER LOCATION (DELIVERY)'
+        }>
           <LiveMapSection
             shipmentId={shipment.id}
             wsRef={wsRef}
@@ -613,7 +619,7 @@ export default function ShipmentTrackingScreen() {
         </Section>
       )}
 
-      {isTransit && (
+      {isHandedToCarrier && (
         <Section title="TRANSIT STATUS">
           <TransitSection shipment={shipment} />
         </Section>
