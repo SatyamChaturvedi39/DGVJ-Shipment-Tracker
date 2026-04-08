@@ -21,4 +21,5 @@ export const Config = {
   WS_BASE_URL: process.env.EXPO_PUBLIC_WS_URL ?? derivedWsUrl,
   DEV_MOCK_AUTH: mockAuthEnabled,
   DEV_ROLE_SELECTOR: mockAuthEnabled,
+  GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? 'PLACEHOLDER',
 };

@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
 import { getShipment, transitionPhase, updateLocation } from '@/services/api';
+import { getIdToken } from '@/services/auth';
 import { useAuth } from '@/hooks/useAuth';
 import type { ShipmentDetail, StatusEvent, ShipmentPhase } from '@/types';
 import { formatEventDate, formatFullDate } from '@/utils/formatDate';
@@ -251,6 +252,39 @@ export default function JobDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => () => { locationSub.current?.remove(); }, []);
+
+  // ── WebSocket: listen for admin phase overrides ───────────────────────────────
+  const wsRef = useRef<WebSocket | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    let ws: WebSocket;
+    (async () => {
+      const token = await getIdToken();
+      const wsUrl = token
+        ? `${Config.WS_BASE_URL}/ws/${id}?token=${encodeURIComponent(token)}`
+        : `${Config.WS_BASE_URL}/ws/${id}`;
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'phase_change') {
+            stopTracking();
+            load();
+            Alert.alert(
+              'Phase Updated by Admin',
+              `This shipment has been moved to "${String(data.phase ?? '').replace(/_/g, ' ')}". Your GPS tracking has been paused — please review your current action.`,
+            );
+          }
+        } catch { /* ignore malformed messages */ }
+      };
+      ws.onerror = () => { /* non-fatal — screen still works without WS */ };
+    })();
+    return () => {
+      if (ws) ws.close();
+      wsRef.current = null;
+    };
+  }, [id, load]);
 
   // ── Role & GPS visibility ────────────────────────────────────────────────────
   const userId = user?.id ?? '';

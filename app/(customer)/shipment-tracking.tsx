@@ -10,13 +10,65 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
 import { getShipment, getLatestLocation } from '@/services/api';
 import { getIdToken } from '@/services/auth';
 import type { ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate } from '@/types';
 import { formatEventDate, formatFullDate, isETAPast } from '@/utils/formatDate';
+
+// ─── Google Maps Directions helpers ──────────────────────────────────────────
+
+/** Decode a Google Maps encoded polyline into lat/lng coordinates. */
+function decodePolyline(encoded: string): { latitude: number; longitude: number }[] {
+  const points: { latitude: number; longitude: number }[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  while (index < encoded.length) {
+    let shift = 0, result = 0, b: number;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : result >> 1;
+    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+  return points;
+}
+
+interface DirectionsResult {
+  routePoints: { latitude: number; longitude: number }[];
+  durationText: string;
+  destCoord: { latitude: number; longitude: number } | null;
+}
+
+async function getDirections(
+  origin: { lat: number; lng: number },
+  destination: string,
+  apiKey: string,
+): Promise<DirectionsResult | null> {
+  if (!apiKey || apiKey === 'PLACEHOLDER') return null;
+  try {
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${encodeURIComponent(destination)}&mode=driving&key=${apiKey}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.status !== 'OK' || !json.routes?.length) return null;
+    const route = json.routes[0];
+    const leg = route.legs?.[0];
+    const encoded: string = route.overview_polyline?.points ?? '';
+    const routePoints = encoded ? decodePolyline(encoded) : [];
+    const durationText: string = leg?.duration?.text ?? '';
+    const endLocation = leg?.end_location;
+    const destCoord = endLocation
+      ? { latitude: endLocation.lat as number, longitude: endLocation.lng as number }
+      : null;
+    return { routePoints, durationText, destCoord };
+  } catch {
+    return null;
+  }
+}
 
 // MANUAL TEST REQUIRED: Tracking screen shows correct phase UI
 //   Open the tracking screen for a shipment and verify the correct section is shown:
@@ -274,7 +326,7 @@ function ExpandableDetails({ shipment }: { shipment: ShipmentDetail }) {
 
 // ─── Live map section ─────────────────────────────────────────────────────────
 
-function DriverStatusCard({ location }: { location: LocationUpdate | null }) {
+function DriverStatusCard({ location, etaText }: { location: LocationUpdate | null; etaText?: string }) {
   if (!location) {
     return (
       <View style={styles.driverCard}>
@@ -288,43 +340,97 @@ function DriverStatusCard({ location }: { location: LocationUpdate | null }) {
   });
   return (
     <View style={styles.driverCard}>
-      <Text style={styles.driverCardText}>🚗 Driver is on the way · Updated {t}</Text>
+      <Text style={styles.driverCardText}>
+        🚗 Driver is on the way{etaText ? `  ·  ETA ~${etaText}` : ''}  ·  Updated {t}
+      </Text>
     </View>
   );
 }
 
 function LiveMapSection({
   shipmentId,
+  shipment,
+  phase,
   wsRef,
   onPhaseChange,
 }: {
   shipmentId: string;
+  shipment: import('@/types').ShipmentDetail;
+  phase: ShipmentPhase;
   wsRef: React.MutableRefObject<WebSocket | null>;
   onPhaseChange: () => void;
 }) {
   const [location, setLocation] = useState<LocationUpdate | null>(null);
   const [fetching, setFetching] = useState(true);
+  const [routePoints, setRoutePoints] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [destCoord, setDestCoord] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [etaText, setEtaText] = useState<string>('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<MapView | null>(null);
+  const lastDirectionsCoord = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Derive the destination string from phase + shipment
+  const getDestinationString = useCallback((): string | null => {
+    if (phase === 'pickup') return shipment.origin;
+    if (phase === 'transit') {
+      return shipment.transport_mode === 'air'
+        ? `airport ${shipment.origin}`
+        : `railway station ${shipment.origin}`;
+    }
+    if (phase === 'out_for_delivery') return shipment.destination;
+    return null;
+  }, [phase, shipment]);
+
+  const fetchDirections = useCallback(async (loc: LocationUpdate) => {
+    const destStr = getDestinationString();
+    if (!destStr) return;
+    const apiKey = Config.GOOGLE_MAPS_API_KEY;
+    if (!apiKey || apiKey === 'PLACEHOLDER') return;
+    // Skip if driver hasn't moved more than ~100m since last call
+    const last = lastDirectionsCoord.current;
+    if (last) {
+      const dlat = Math.abs(last.lat - loc.lat);
+      const dlng = Math.abs(last.lng - loc.lng);
+      if (dlat < 0.001 && dlng < 0.001) return; // ~100m threshold
+    }
+    lastDirectionsCoord.current = { lat: loc.lat, lng: loc.lng };
+    const result = await getDirections({ lat: loc.lat, lng: loc.lng }, destStr, apiKey);
+    if (result) {
+      setRoutePoints(result.routePoints);
+      setEtaText(result.durationText);
+      if (result.destCoord) setDestCoord(result.destCoord);
+      // Fit map to show both driver and destination
+      if (result.destCoord && mapRef.current) {
+        mapRef.current.fitToCoordinates(
+          [{ latitude: loc.lat, longitude: loc.lng }, result.destCoord],
+          { edgePadding: { top: 40, right: 40, bottom: 40, left: 40 }, animated: true }
+        );
+      }
+    }
+  }, [getDestinationString]);
 
   const fetchLocation = useCallback(async () => {
     try {
       const loc = await getLatestLocation(shipmentId);
       if (loc) {
         setLocation(loc);
-        mapRef.current?.animateToRegion({
-          latitude: loc.lat,
-          longitude: loc.lng,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }, 800);
+        if (!routePoints.length) {
+          // First load — center on driver
+          mapRef.current?.animateToRegion({
+            latitude: loc.lat,
+            longitude: loc.lng,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }, 800);
+        }
+        await fetchDirections(loc);
       }
     } catch {
-      // No location yet — leave as null
+      // No location yet
     } finally {
       setFetching(false);
     }
-  }, [shipmentId]);
+  }, [shipmentId, fetchDirections, routePoints.length]);
 
   useEffect(() => {
     fetchLocation();
@@ -334,37 +440,35 @@ function LiveMapSection({
     };
   }, [fetchLocation]);
 
-  // WebSocket live updates (set up by parent, we read from wsRef but also handle here)
+  // WebSocket live updates
   useEffect(() => {
     const ws = wsRef.current;
     if (!ws) return;
-
     const onMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'location') {
-          setLocation(prev => ({
-            id: prev?.id ?? '',
+          const newLoc: LocationUpdate = {
+            id: '',
             shipment_id: shipmentId,
             employee_id: data.employee_id ?? '',
             lat: data.lat,
             lng: data.lng,
             timestamp: new Date().toISOString(),
-          }));
+          };
+          setLocation(newLoc);
+          // Animate marker without re-fitting (directions will update on next poll)
           mapRef.current?.animateToRegion({
             latitude: data.lat,
             longitude: data.lng,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
           }, 800);
         } else if (data.type === 'phase_change' || data.type === 'status_update') {
           onPhaseChange();
         }
-      } catch {
-        // ignore malformed WS messages
-      }
+      } catch { /* ignore */ }
     };
-
     ws.addEventListener('message', onMessage);
     return () => ws.removeEventListener('message', onMessage);
   }, [wsRef, shipmentId, onPhaseChange]);
@@ -394,8 +498,8 @@ function LiveMapSection({
   const initialRegion: Region = {
     latitude: location.lat,
     longitude: location.lng,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
   };
 
   return (
@@ -412,9 +516,24 @@ function LiveMapSection({
         <Marker
           coordinate={{ latitude: location.lat, longitude: location.lng }}
           title="Driver Location"
+          pinColor={Colors.primary}
         />
+        {routePoints.length > 0 && (
+          <Polyline
+            coordinates={routePoints}
+            strokeColor={Colors.primary}
+            strokeWidth={3}
+          />
+        )}
+        {destCoord && (
+          <Marker
+            coordinate={destCoord}
+            title="Destination"
+            pinColor="#1565C0"
+          />
+        )}
       </MapView>
-      <DriverStatusCard location={location} />
+      <DriverStatusCard location={location} etaText={etaText} />
     </View>
   );
 }
@@ -613,6 +732,8 @@ export default function ShipmentTrackingScreen() {
         }>
           <LiveMapSection
             shipmentId={shipment.id}
+            shipment={shipment}
+            phase={phase}
             wsRef={wsRef}
             onPhaseChange={load}
           />
@@ -841,7 +962,7 @@ const styles = StyleSheet.create({
 
   // Map
   map: {
-    height: 220,
+    height: 260,
     borderRadius: 12,
     overflow: 'hidden',
   },
