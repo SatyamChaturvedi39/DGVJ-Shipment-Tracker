@@ -4,8 +4,15 @@ import {
   ConfirmationResult,
   ApplicationVerifier,
 } from 'firebase/auth';
+import { NativeModules } from 'react-native';
 import { auth } from './firebase';
 import { Config } from '@/constants/config';
+
+// Check once at module load time — avoids repeated require() calls that
+// trigger RNFBNativeEventEmitter and crash Expo Go with the error overlay.
+// RNFBAuthModule is only present in NativeModules when the app is a real
+// EAS native build. In Expo Go it is undefined.
+const NATIVE_FIREBASE_AVAILABLE = !!NativeModules.RNFBAuthModule;
 
 // ── Dev-only helpers (Expo Go / mock mode) ────────────────────────────────────
 
@@ -14,7 +21,7 @@ let mockPhone: string | null = null;
 
 // Satisfies the SDK type requirement without needing a DOM or real reCAPTCHA.
 // Only works with numbers registered under Firebase Console → Phone → Test numbers.
-// Used exclusively when Config.DEV_MOCK_AUTH is true (Expo Go dev flow).
+// Used exclusively when Config.DEV_MOCK_AUTH is false but running in Expo Go.
 const fakeRecaptchaVerifier: ApplicationVerifier & { _reset?: () => void } = {
   type: 'recaptcha',
   verify: () => Promise.resolve('fake-recaptcha-token'),
@@ -23,12 +30,10 @@ const fakeRecaptchaVerifier: ApplicationVerifier & { _reset?: () => void } = {
 
 // ── Production OTP (native @react-native-firebase) ────────────────────────────
 
-// Lazy-loaded so that Expo Go (which lacks the native module) doesn't crash.
-// In production EAS builds, @react-native-firebase/auth is always available.
+// Only called when NATIVE_FIREBASE_AVAILABLE is true (EAS builds).
 let nativeConfirmation: { confirm: (code: string) => Promise<unknown> } | null = null;
 
 async function sendOTPNative(phoneNumber: string): Promise<void> {
-  // Dynamic import avoids crashing Expo Go where the native module is absent
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const rnfirebase = require('@react-native-firebase/auth');
   const rnAuth = (rnfirebase.default ?? rnfirebase)();
@@ -67,21 +72,8 @@ export async function sendOTP(phoneNumber: string): Promise<void> {
     return;
   }
 
-  // Detect whether the native @react-native-firebase module is available.
-  // RNFBAuthModule is present in NativeModules only in EAS builds (native APK).
-  // In Expo Go the native module is not linked, so NativeModules.RNFBAuthModule is undefined.
-  let nativeAvailable = false;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { NativeModules } = require('react-native');
-    nativeAvailable = !!NativeModules.RNFBAuthModule;
-  } catch {
-    nativeAvailable = false;
-  }
-
-  if (nativeAvailable) {
-    // Native build (EAS) — use native Firebase SDK directly.
-    // Do NOT fall back to JS SDK; it cannot send real SMS.
+  if (NATIVE_FIREBASE_AVAILABLE) {
+    // Native EAS build — real SMS via @react-native-firebase
     try {
       await sendOTPNative(phoneNumber);
     } catch (e: unknown) {
@@ -90,7 +82,7 @@ export async function sendOTP(phoneNumber: string): Promise<void> {
       throw new Error(msg || 'Failed to send OTP via native Firebase');
     }
   } else {
-    // Expo Go — use JS SDK with fakeRecaptcha (only works with Firebase test numbers)
+    // Expo Go — JS SDK with fakeRecaptcha (only works with Firebase test numbers)
     try {
       confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, fakeRecaptchaVerifier);
     } catch (e: unknown) {
@@ -109,12 +101,12 @@ export async function verifyOTP(code: string): Promise<boolean> {
     throw new Error('Invalid OTP. Use 123456 in dev mode.');
   }
 
-  // Try native path first (EAS build)
+  // Native path (EAS build)
   if (nativeConfirmation) {
     return verifyOTPNative(code);
   }
 
-  // Fallback: JS SDK path (Expo Go + Firebase test numbers)
+  // JS SDK path (Expo Go + Firebase test numbers)
   if (!confirmationResult) {
     throw new Error('No OTP request found. Call sendOTP first.');
   }
@@ -133,15 +125,18 @@ export async function signOut(): Promise<void> {
     mockPhone = null;
     return;
   }
-  try {
-    await signOutNative();
-  } catch {
-    // Fallback: JS SDK
+  if (NATIVE_FIREBASE_AVAILABLE) {
+    try {
+      await signOutNative();
+    } catch (e: unknown) {
+      console.error('[Firebase Native] signOut failed:', e);
+    }
+  } else {
     try {
       await firebaseSignOut(auth);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error('[Firebase] signOut failed:', msg);
+      console.error('[Firebase JS] signOut failed:', msg);
     }
   }
 }
@@ -150,14 +145,16 @@ export async function getIdToken(): Promise<string | null> {
   if (Config.DEV_MOCK_AUTH) {
     return mockPhone ? `dev-mock-token:${mockPhone}` : 'dev-mock-token';
   }
-  // Try native path first (EAS build)
-  try {
-    const token = await getIdTokenNative();
-    if (token) return token;
-  } catch {
-    // Native module not available — fall through to JS SDK
+  // Native path (EAS build only — not called in Expo Go)
+  if (NATIVE_FIREBASE_AVAILABLE) {
+    try {
+      const token = await getIdTokenNative();
+      if (token) return token;
+    } catch (e: unknown) {
+      console.error('[Firebase Native] getIdToken failed:', e);
+    }
   }
-  // JS SDK fallback (Expo Go)
+  // JS SDK path (Expo Go)
   const user = auth.currentUser;
   if (!user) return null;
   return user.getIdToken();
