@@ -301,14 +301,11 @@ export default function ShipmentDetailScreen() {
     return employees.find(e => e.id === empId)?.name ?? empId;
   };
 
-  const handleAdvancePhase = async () => {
+  const handleSetPhase = (target: ShipmentPhase) => {
     if (!shipment) return;
-    const next = getNextPhase(shipment.current_phase);
-    if (!next) return;
-
     Alert.alert(
-      'Advance Phase',
-      `Move this shipment to "${PHASE_CONFIG[next].label}"?`,
+      'Set Phase (Admin Override)',
+      `Force this shipment to "${PHASE_CONFIG[target].label}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -317,15 +314,31 @@ export default function ShipmentDetailScreen() {
           onPress: async () => {
             setAdvancingPhase(true);
             try {
-              await transitionPhase(shipment.id, next);
+              await transitionPhase(shipment.id, target);
               await load();
             } catch {
-              Alert.alert('Error', 'Failed to advance phase. Please try again.');
+              Alert.alert('Error', 'Failed to update phase. Please try again.');
             } finally {
               setAdvancingPhase(false);
             }
           },
         },
+      ]
+    );
+  };
+
+  const handlePhasePickerOpen = () => {
+    if (!shipment) return;
+    const options = PHASE_ORDER.filter(p => p !== shipment.current_phase);
+    Alert.alert(
+      'Set Phase',
+      `Current: ${PHASE_CONFIG[shipment.current_phase].label}\nSelect the phase to set:`,
+      [
+        ...options.map(p => ({
+          text: PHASE_CONFIG[p].label,
+          onPress: () => handleSetPhase(p),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
       ]
     );
   };
@@ -475,13 +488,13 @@ export default function ShipmentDetailScreen() {
         )}
 
         {/* ── Admin actions ────────────────────────────────────────── */}
-        {!isCompleted && (
-          <View style={styles.actionsSection}>
-            <Text style={styles.actionsSectionTitle}>Admin Actions</Text>
+        <View style={styles.actionsSection}>
+          <Text style={styles.actionsSectionTitle}>Admin Actions</Text>
 
+          {!isCompleted && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionBtnPrimary, advancingPhase && styles.actionBtnDisabled]}
-              onPress={handleAdvancePhase}
+              onPress={handlePhasePickerOpen}
               disabled={advancingPhase}
               activeOpacity={0.8}
             >
@@ -489,26 +502,20 @@ export default function ShipmentDetailScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.actionBtnText}>
-                  {shipment.current_phase === 'pickup'
-                    ? 'Mark as In Transit  →'
-                    : shipment.current_phase === 'transit'
-                    ? `Hand to ${shipment.transport_mode === 'air' ? 'Airport' : 'Railway Station'}  →`
-                    : shipment.current_phase === 'handed_to_carrier'
-                    ? 'Mark as Out for Delivery  →'
-                    : 'Mark as Delivered  ✓'}
+                  Set Phase (Override)  ↕
                 </Text>
               )}
             </TouchableOpacity>
+          )}
 
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.actionBtnOutline]}
-              onPress={() => setAddStatusVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionBtnOutlineText}>+ Add Status Update</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnOutline]}
+            onPress={() => setAddStatusVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionBtnOutlineText}>+ Add Status Update</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>

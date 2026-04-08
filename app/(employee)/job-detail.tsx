@@ -315,8 +315,10 @@ export default function JobDetailScreen() {
             await transitionPhase(id!, nextPhase);
             Alert.alert('Done', successMsg, [{ text: 'OK', onPress: () => router.back() }]);
           } catch (e: unknown) {
-            const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-              ?? 'Failed to update. Try again.';
+            const rawDetail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+            const msg = Array.isArray(rawDetail)
+              ? (rawDetail as { msg?: string }[]).map(d => d?.msg ?? String(d)).join(', ')
+              : (typeof rawDetail === 'string' ? rawDetail : 'Failed to update. Try again.');
             Alert.alert('Error', msg);
           } finally {
             setTransitioning(false);
