@@ -68,12 +68,13 @@ export async function sendOTP(phoneNumber: string): Promise<void> {
   }
 
   // Detect whether the native @react-native-firebase module is available.
-  // It is present in EAS builds but absent in Expo Go.
+  // RNFBAuthModule is present in NativeModules only in EAS builds (native APK).
+  // In Expo Go the native module is not linked, so NativeModules.RNFBAuthModule is undefined.
   let nativeAvailable = false;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const rnfirebase = require('@react-native-firebase/auth');
-    nativeAvailable = !!(rnfirebase.default ?? rnfirebase);
+    const { NativeModules } = require('react-native');
+    nativeAvailable = !!NativeModules.RNFBAuthModule;
   } catch {
     nativeAvailable = false;
   }

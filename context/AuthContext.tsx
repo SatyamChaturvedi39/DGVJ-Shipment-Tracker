@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
           } else {
             await signOutService();
-            setAuthError('Connection timed out or server is waking up. Please verify the OTP again.');
+            setAuthError('Server is starting up — this takes ~30s on first access. Please wait, then tap Send OTP to try again.');
           }
           setUser(null);
         }
@@ -111,8 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     }
-    // Real mode: onAuthStateChanged fires automatically after verification
-    // and calls getMe() to set the user
+    // Real mode: Firebase confirmed OTP. Set isLoading=true so index.tsx shows a
+    // spinner while onAuthStateChanged fires and calls the backend to verify the token.
+    // onAuthStateChanged will set isLoading=false when the backend call completes.
+    setIsLoading(true);
   }, []);
 
   const logout = useCallback(async () => {
