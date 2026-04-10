@@ -12,7 +12,7 @@ import { Config } from '@/constants/config';
 // trigger RNFBNativeEventEmitter and crash Expo Go with the error overlay.
 // RNFBAuthModule is only present in NativeModules when the app is a real
 // EAS native build. In Expo Go it is undefined.
-const NATIVE_FIREBASE_AVAILABLE = !!NativeModules.RNFBAuthModule;
+export const NATIVE_FIREBASE_AVAILABLE = !!NativeModules.RNFBAuthModule;
 
 // ── Dev-only helpers (Expo Go / mock mode) ────────────────────────────────────
 
