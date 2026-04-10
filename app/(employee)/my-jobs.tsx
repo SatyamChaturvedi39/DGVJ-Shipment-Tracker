@@ -11,28 +11,13 @@ import {
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
+import { PHASE_CONFIG } from '@/constants/phases';
 import { getShipments } from '@/services/api';
+import { formatETA } from '@/utils/formatDate';
 import { useAuth } from '@/hooks/useAuth';
 import type { Shipment, ShipmentPhase } from '@/types';
 
-// MANUAL TEST REQUIRED: My Jobs shows assigned shipments
-//   In dev mode all shipments are shown (dev-mock-token = admin).
-//   For production testing with a real employee token:
-//   1. Log in as an employee (real phone OTP or Firebase test number)
-//   2. "Active" tab must show only shipments where pickup_employee_id or
-//      delivery_employee_id equals this employee's user ID
-//   3. "Completed" tab shows only this employee's completed shipments
-//   4. Pull-to-refresh reloads the list
-
 // ─── Phase badge ─────────────────────────────────────────────────────────────
-
-const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {
-  pickup:            { label: 'Pickup',           bg: '#FFF8E1', text: '#F57F17' },
-  transit:           { label: 'To Carrier',        bg: '#E3F2FD', text: '#1565C0' },
-  handed_to_carrier: { label: 'With Carrier',      bg: '#F3E5F5', text: '#6A1B9A' },
-  out_for_delivery:  { label: 'Out for Delivery',  bg: '#FFF8E1', text: '#F57F17' },
-  completed:         { label: 'Completed',         bg: '#E8F5E9', text: '#2E7D32' },
-};
 
 function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
   const cfg = PHASE_CONFIG[phase] ?? PHASE_CONFIG.pickup;
@@ -49,7 +34,7 @@ function RoleBadge({ role }: { role: 'pickup' | 'delivery' }) {
   const isPickup = role === 'pickup';
   return (
     <View style={[styles.roleBadge, isPickup ? styles.roleBadgePickup : styles.roleBadgeDelivery]}>
-      <Text style={styles.roleBadgeText}>
+      <Text style={[styles.roleBadgeText, { color: isPickup ? '#F57F17' : '#1565C0' }]}>
         {isPickup ? 'PICKUP DRIVER' : 'DELIVERY DRIVER'}
       </Text>
     </View>
@@ -93,7 +78,7 @@ function JobCard({
       <View style={styles.cardBottom}>
         <RoleBadge role={employeeRole} />
         {shipment.eta_date ? (
-          <Text style={styles.eta}>ETA {shipment.eta_date}</Text>
+          <Text style={styles.eta}>ETA  {formatETA(shipment.eta_date, shipment.eta_time)}</Text>
         ) : null}
       </View>
     </TouchableOpacity>
@@ -382,14 +367,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   roleBadgePickup: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#FFF8E1',
   },
   roleBadgeDelivery: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E3F2FD',
   },
   roleBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.5,
     color: Colors.textPrimary,
   },

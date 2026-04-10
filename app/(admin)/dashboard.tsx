@@ -10,24 +10,13 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
+import { PHASE_CONFIG, PHASE_BORDER } from '@/constants/phases';
 import { getShipments } from '@/services/api';
+import { formatETA } from '@/utils/formatDate';
 import { useAuth } from '@/hooks/useAuth';
 import type { Shipment, ShipmentPhase } from '@/types';
 
-// MANUAL TEST REQUIRED: Dashboard loads shipments from backend
-//   1. Open app in dev mode as Admin
-//   2. Dashboard should show the shipment list with correct stats (active / completed count)
-//   3. Pull-to-refresh should reload the list without errors
-
 // ─── Phase badge ─────────────────────────────────────────────────────────────
-
-const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {
-  pickup:            { label: 'Pickup',           bg: '#FFF8E1', text: '#F57F17' },
-  transit:           { label: 'In Transit',       bg: '#E3F2FD', text: '#1565C0' },
-  handed_to_carrier: { label: 'With Carrier',     bg: '#F3E5F5', text: '#6A1B9A' },
-  out_for_delivery:  { label: 'Out for Delivery', bg: '#FFF8E1', text: '#F57F17' },
-  completed:         { label: 'Completed',        bg: '#E8F5E9', text: '#2E7D32' },
-};
 
 function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
   const cfg = PHASE_CONFIG[phase] ?? PHASE_CONFIG.pickup;
@@ -49,16 +38,6 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
     </View>
   );
 }
-
-// ─── Phase left-border color ─────────────────────────────────────────────────
-
-const PHASE_BORDER: Record<ShipmentPhase, string> = {
-  pickup:            '#F57F17',
-  transit:           '#1565C0',
-  handed_to_carrier: '#6A1B9A',
-  out_for_delivery:  '#F57F17',
-  completed:         '#2E7D32',
-};
 
 // ─── Shipment row card ───────────────────────────────────────────────────────
 
@@ -86,7 +65,7 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
           </Text>
         </View>
         {shipment.eta_date ? (
-          <Text style={styles.eta}>ETA {shipment.eta_date}</Text>
+          <Text style={styles.eta}>ETA  {formatETA(shipment.eta_date, shipment.eta_time)}</Text>
         ) : null}
       </View>
     </TouchableOpacity>

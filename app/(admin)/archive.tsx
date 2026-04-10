@@ -12,18 +12,8 @@ import {
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { getShipments } from '@/services/api';
+import { formatFullDate } from '@/utils/formatDate';
 import type { Shipment } from '@/types';
-
-// MANUAL TEST REQUIRED: Archive shows completed shipments
-//   1. Open app in dev mode as Admin → tap "Archive" tab
-//   2. Verify only shipments with current_phase === 'completed' are shown
-//   3. Search bar: type part of a tracking ID or destination → list filters correctly
-//   4. Tap a completed shipment → detail screen opens with "Completed" phase badge
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return iso.slice(0, 10);
-}
 
 function ShipmentRow({ item }: { item: Shipment }) {
   return (
@@ -46,7 +36,7 @@ function ShipmentRow({ item }: { item: Shipment }) {
       </View>
 
       <View style={styles.rowRight}>
-        <Text style={styles.completedDate}>{formatDate(item.completed_at)}</Text>
+        <Text style={styles.completedDate}>{formatFullDate(item.completed_at)}</Text>
         <Text style={styles.completedLabel}>Completed</Text>
       </View>
     </TouchableOpacity>

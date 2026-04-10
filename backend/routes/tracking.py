@@ -150,4 +150,6 @@ def get_latest_location(shipment_id: str, user: dict = Depends(get_current_user)
     )
     if not result.data:
         return None
-    return result.data[0]
+    row = result.data[0]
+    # Map created_at → timestamp so frontend LocationUpdate type is satisfied
+    return {**row, "timestamp": row["created_at"]}

@@ -13,23 +13,12 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as Location from 'expo-location';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
+import { PHASE_CONFIG, PHASE_ORDER as PHASE_STEPS } from '@/constants/phases';
 import { getShipment, transitionPhase, updateLocation } from '@/services/api';
 import { getIdToken } from '@/services/auth';
 import { useAuth } from '@/hooks/useAuth';
 import type { ShipmentDetail, StatusEvent, ShipmentPhase } from '@/types';
-import { formatEventDate, formatFullDate } from '@/utils/formatDate';
-
-// ─── Phase config ─────────────────────────────────────────────────────────────
-
-const PHASE_CONFIG: Record<ShipmentPhase, { label: string; bg: string; text: string }> = {
-  pickup:            { label: 'Pickup',          bg: '#FFF8E1', text: '#F57F17' },
-  transit:           { label: 'To Carrier',       bg: '#E3F2FD', text: '#1565C0' },
-  handed_to_carrier: { label: 'With Carrier',     bg: '#F3E5F5', text: '#6A1B9A' },
-  out_for_delivery:  { label: 'Out for Delivery', bg: '#FFF8E1', text: '#E65100' },
-  completed:         { label: 'Completed',        bg: '#E8F5E9', text: '#2E7D32' },
-};
-
-const PHASE_STEPS: ShipmentPhase[] = ['pickup', 'transit', 'handed_to_carrier', 'out_for_delivery', 'completed'];
+import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 
 function carrierName(mode: string) {
   return mode === 'air' ? 'Airport' : 'Railway Station';
@@ -543,7 +532,7 @@ export default function JobDetailScreen() {
         <View style={styles.divider} />
         <InfoRow label={`${transportIcon} ${shipment.transport_mode === 'air' ? 'Flight' : 'Train'}`} value={shipment.transport_number} />
         {shipment.eta_date ? (
-          <InfoRow label="ETA" value={`${shipment.eta_date}${shipment.eta_time ? '  ' + shipment.eta_time : ''}`} />
+          <InfoRow label="ETA" value={formatETA(shipment.eta_date, shipment.eta_time)} />
         ) : null}
       </Section>
 

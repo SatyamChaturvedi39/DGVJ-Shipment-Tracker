@@ -16,7 +16,7 @@ import { Config } from '@/constants/config';
 import { getShipment, getLatestLocation } from '@/services/api';
 import { getIdToken } from '@/services/auth';
 import type { ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate } from '@/types';
-import { formatEventDate, formatFullDate, isETAPast } from '@/utils/formatDate';
+import { formatEventDate, formatETA, formatFullDate, isETAPast } from '@/utils/formatDate';
 
 // ─── Google Maps Directions helpers ──────────────────────────────────────────
 
@@ -712,10 +712,7 @@ export default function ShipmentTrackingScreen() {
             <Text style={styles.etaCardLabel}>
               {isETAPast(shipment.eta_date) ? 'Estimated Delivery — Delayed' : 'Estimated Delivery'}
             </Text>
-            <Text style={styles.etaCardDate}>{shipment.eta_date}</Text>
-            {shipment.eta_time ? (
-              <Text style={styles.etaCardTime}>{shipment.eta_time}</Text>
-            ) : null}
+            <Text style={styles.etaCardDate}>{formatETA(shipment.eta_date, shipment.eta_time)}</Text>
             {isETAPast(shipment.eta_date) ? (
               <Text style={styles.etaDelayNote}>Contact Digvijay Express for updates</Text>
             ) : null}
