@@ -21,7 +21,7 @@ import type { UserRole } from '@/types';
 export default function LoginScreen() {
   const { login, setDevRole, authError, clearAuthError } = useAuth();
   const { width } = useWindowDimensions();
-  const brandFontSize = width < 380 ? 34 : 42;
+  const isSmall = width < 380;
 
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,35 +55,48 @@ export default function LoginScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       >
-        {/* ── Red brand header ─────────────────────────────────────── */}
+        {/* ── Brand area ───────────────────────────────────────────── */}
         <View style={styles.brandArea}>
-          <View style={styles.wordmarkRow}>
-            <Text style={[styles.brandMain, { fontSize: brandFontSize }]}>DIGVIJAY</Text>
-            <View style={styles.blrChip}>
-              <Text style={styles.blrChipText}>BLR</Text>
-            </View>
+          {/* Logo emblem */}
+          <View style={styles.emblem}>
+            <Text style={styles.emblemLetter}>D</Text>
           </View>
-          <Text style={styles.brandSub}>EXPRESS</Text>
-          <Text style={styles.tagline}>Bangalore Branch  ·  Shipment Tracking</Text>
+
+          {/* Wordmark */}
+          <Text style={[styles.brandName, { fontSize: isSmall ? 30 : 36 }]}>
+            DIGVIJAY
+          </Text>
+          <View style={styles.subtitleRow}>
+            <View style={styles.line} />
+            <Text style={styles.brandExpress}>EXPRESS</Text>
+            <View style={styles.line} />
+          </View>
+          <View style={styles.blrBadge}>
+            <Text style={styles.blrBadgeText}>✈  BANGALORE</Text>
+          </View>
         </View>
 
-        {/* ── White body card ───────────────────────────────────────── */}
+        {/* ── White form card ──────────────────────────────────────── */}
         <ScrollView
-          style={styles.body}
-          contentContainerStyle={styles.bodyContent}
+          style={styles.card}
+          contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={false}
         >
+          <Text style={styles.cardTitle}>Sign In</Text>
+          <Text style={styles.cardSubtitle}>Enter your registered phone number</Text>
+
           {/* Auth error banner */}
           {authError ? (
-            <View style={styles.authError}>
+            <View style={styles.authErrorBanner}>
               <Text style={styles.authErrorText}>{authError}</Text>
             </View>
           ) : null}
 
-          <Text style={styles.inputLabel}>Phone Number</Text>
+          {/* Phone input */}
           <View style={[styles.phoneRow, error ? styles.phoneRowError : null]}>
             <View style={styles.prefix}>
+              <Text style={styles.flag}>🇮🇳</Text>
               <Text style={styles.prefixText}>+91</Text>
             </View>
             <TextInput
@@ -94,7 +107,7 @@ export default function LoginScreen() {
                 if (error) setError('');
                 if (authError) clearAuthError();
               }}
-              placeholder="9876543210"
+              placeholder="98765 43210"
               placeholderTextColor={Colors.textMuted}
               keyboardType="phone-pad"
               maxLength={10}
@@ -115,15 +128,13 @@ export default function LoginScreen() {
               : <Text style={styles.continueBtnText}>Continue  →</Text>}
           </TouchableOpacity>
 
-          <Text style={styles.hint}>
-            Enter your registered phone number to sign in.
-          </Text>
-
           {/* Dev-only role selector */}
           {Config.DEV_ROLE_SELECTOR && (
             <View style={styles.devSection}>
-              <View style={styles.devBanner}>
-                <Text style={styles.devBannerText}>DEV ONLY</Text>
+              <View style={styles.devDivider}>
+                <View style={styles.devDividerLine} />
+                <Text style={styles.devDividerText}>DEV ONLY</Text>
+                <View style={styles.devDividerLine} />
               </View>
               <Text style={styles.devLabel}>Skip PIN — Select Role</Text>
               <View style={styles.devBtns}>
@@ -155,67 +166,98 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
 
-  // ── Brand area (red)
+  // ── Brand area
   brandArea: {
-    flex: 0.38,
+    flex: 0.42,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    gap: 10,
   },
-  wordmarkRow: {
+  emblem: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  emblemLetter: {
+    fontSize: 44,
+    fontWeight: '900',
+    color: Colors.primary,
+    lineHeight: 52,
+  },
+  brandName: {
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 6,
+  },
+  subtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 4,
   },
-  brandMain: {
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 3,
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    maxWidth: 40,
   },
-  blrChip: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.5)',
-  },
-  blrChipText: {
+  brandExpress: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 1.5,
-  },
-  brandSub: {
-    fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.75)',
-    letterSpacing: 5,
-    marginBottom: 10,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 4,
   },
-  tagline: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 0.3,
+  blrBadge: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  blrBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 2,
   },
 
-  // ── Body card (white)
-  body: {
-    flex: 0.62,
+  // ── White form card
+  card: {
+    flex: 0.58,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
   },
-  bodyContent: {
-    paddingHorizontal: 24,
-    paddingTop: 28,
+  cardContent: {
+    paddingHorizontal: 28,
+    paddingTop: 32,
     paddingBottom: 32,
     flexGrow: 1,
   },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 24,
+  },
 
   // Auth error
-  authError: {
+  authErrorBanner: {
     backgroundColor: '#FFEBEE',
     borderRadius: 10,
     padding: 12,
@@ -230,12 +272,6 @@ const styles = StyleSheet.create({
   },
 
   // Phone input
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginBottom: 8,
-  },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -250,14 +286,20 @@ const styles = StyleSheet.create({
     borderColor: Colors.error,
   },
   prefix: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 16,
-    backgroundColor: '#EFEFEF',
+    backgroundColor: '#F0F0F0',
     borderRightWidth: 1,
     borderRightColor: Colors.border,
   },
-  prefixText: {
+  flag: {
     fontSize: 16,
+  },
+  prefixText: {
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
@@ -283,13 +325,12 @@ const styles = StyleSheet.create({
     height: 54,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 14,
+    marginTop: 14,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
   },
   continueBtnDisabled: {
     opacity: 0.45,
@@ -302,39 +343,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  hint: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
 
   // Dev section
   devSection: {
     marginTop: 28,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
     alignItems: 'center',
   },
-  devBanner: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 6,
-    marginBottom: 10,
+  devDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    width: '100%',
   },
-  devBannerText: {
-    color: '#FFFFFF',
+  devDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  devDividerText: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1,
+    color: Colors.textMuted,
+    letterSpacing: 1.5,
   },
   devLabel: {
     fontSize: 11,
     fontWeight: '600',
     color: Colors.textMuted,
-    letterSpacing: 0.5,
     marginBottom: 12,
   },
   devBtns: {

@@ -105,16 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const profile = await loginWithPin(phone, pin);
       setUser(profile);
     } catch (e: any) {
-      const status = e?.response?.status;
-      const detail = e?.response?.data?.detail ?? e?.message ?? 'Login failed. Try again.';
-      if (status === 403 || status === 401) {
-        setAuthError(detail);
-      } else {
-        setAuthError(
-          'Cannot reach server — check your connection and try again.'
-        );
-      }
       setUser(null);
+      setIsLoading(false);
+      // Re-throw so verify.tsx can show the error in-place without navigating
+      throw e;
     } finally {
       setIsLoading(false);
     }

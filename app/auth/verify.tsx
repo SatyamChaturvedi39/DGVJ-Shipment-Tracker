@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 const PIN_LENGTH = 4;
 
 export default function VerifyScreen() {
-  const { verifyOTP, authError, clearAuthError } = useAuth();
+  const { verifyOTP } = useAuth();
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,17 +33,6 @@ export default function VerifyScreen() {
     }
   }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show auth errors from context (e.g. wrong PIN, deactivated)
-  useEffect(() => {
-    if (authError) {
-      setError(authError);
-      setPin('');
-      autoSubmittedRef.current = false;
-      clearAuthError();
-      setLoading(false);
-    }
-  }, [authError, clearAuthError]);
-
   const handleVerify = async (pinToVerify: string) => {
     setError('');
     setLoading(true);
@@ -51,7 +40,8 @@ export default function VerifyScreen() {
       await verifyOTP(pinToVerify);
       router.replace('/');
     } catch (e: any) {
-      setError(e.message || 'Incorrect PIN. Please try again.');
+      const msg = e?.response?.data?.detail ?? e?.message ?? 'Incorrect PIN. Please try again.';
+      setError(msg);
       setPin('');
       autoSubmittedRef.current = false;
     } finally {
