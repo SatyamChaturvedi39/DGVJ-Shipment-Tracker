@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+import bcrypt
 from dependencies import get_current_user, require_role
 from database import supabase
 from models.user import UpdateProfileRequest, CreateUserRequest, AdminUpdateUserRequest
+
+
+def _hash_pin(pin: str) -> str:
+    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -45,17 +50,29 @@ def create_user(body: CreateUserRequest, _user: dict = Depends(require_role("adm
     existing = supabase.table("users").select("id").eq("phone", body.phone).execute()
     if existing.data:
         raise HTTPException(status_code=409, detail="A user with this phone number already exists")
+
+    # Validate and hash the PIN if provided
+    if body.pin is not None:
+        if not body.pin.isdigit() or len(body.pin) != 4:
+            raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits.")
+        pin_hash = _hash_pin(body.pin)
+    else:
+        pin_hash = None
+
     new_user = {
         "name": body.name,
         "phone": body.phone,
         "role": body.role,
         "company_name": body.company_name,
         "is_active": True,
+        "pin_hash": pin_hash,
     }
     result = supabase.table("users").insert(new_user).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create user")
-    return result.data[0]
+    # Never return pin_hash to the client
+    created = {k: v for k, v in result.data[0].items() if k != "pin_hash"}
+    return created
 
 
 @router.put("/{user_id}")

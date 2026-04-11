@@ -1,165 +1,98 @@
-import {
-  signInWithPhoneNumber,
-  signOut as firebaseSignOut,
-  ConfirmationResult,
-  ApplicationVerifier,
-} from 'firebase/auth';
-import { NativeModules } from 'react-native';
-import { auth } from './firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { Config } from '@/constants/config';
+import type { User } from '@/types';
 
-// Check once at module load time — avoids repeated require() calls that
-// trigger RNFBNativeEventEmitter and crash Expo Go with the error overlay.
-// RNFBAuthModule is only present in NativeModules when the app is a real
-// EAS native build. In Expo Go it is undefined.
-export const NATIVE_FIREBASE_AVAILABLE = !!NativeModules.RNFBAuthModule;
+const TOKEN_KEY = 'auth_token';
 
-// ── Dev-only helpers (Expo Go / mock mode) ────────────────────────────────────
+// Phone stored in memory for the current login attempt
+let pendingLoginPhone: string | null = null;
 
-let confirmationResult: ConfirmationResult | null = null;
-let mockPhone: string | null = null;
+// ── Token storage ─────────────────────────────────────────────────────────────
 
-// Satisfies the SDK type requirement without needing a DOM or real reCAPTCHA.
-// Only works with numbers registered under Firebase Console → Phone → Test numbers.
-// Used exclusively when Config.DEV_MOCK_AUTH is false but running in Expo Go.
-const fakeRecaptchaVerifier: ApplicationVerifier & { _reset?: () => void } = {
-  type: 'recaptcha',
-  verify: () => Promise.resolve('fake-recaptcha-token'),
-  _reset: () => {},
-};
-
-// ── Production OTP (native @react-native-firebase) ────────────────────────────
-
-// Only called when NATIVE_FIREBASE_AVAILABLE is true (EAS builds).
-let nativeConfirmation: { confirm: (code: string) => Promise<unknown> } | null = null;
-
-async function sendOTPNative(phoneNumber: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const rnfirebase = require('@react-native-firebase/auth');
-  const rnAuth = (rnfirebase.default ?? rnfirebase)();
-  nativeConfirmation = await rnAuth.signInWithPhoneNumber(phoneNumber);
+export async function getStoredToken(): Promise<string | null> {
+  return AsyncStorage.getItem(TOKEN_KEY);
 }
 
-async function verifyOTPNative(code: string): Promise<boolean> {
-  if (!nativeConfirmation) {
-    throw new Error('No OTP request found. Call sendOTP first.');
-  }
-  await nativeConfirmation.confirm(code);
-  return true;
+async function storeToken(token: string): Promise<void> {
+  await AsyncStorage.setItem(TOKEN_KEY, token);
 }
 
-async function getIdTokenNative(): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const rnfirebase = require('@react-native-firebase/auth');
-  const rnAuth = (rnfirebase.default ?? rnfirebase)();
-  const user = rnAuth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
+export async function clearToken(): Promise<void> {
+  await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
-async function signOutNative(): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const rnfirebase = require('@react-native-firebase/auth');
-  const rnAuth = (rnfirebase.default ?? rnfirebase)();
-  await rnAuth.signOut();
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-export async function sendOTP(phoneNumber: string): Promise<void> {
-  if (Config.DEV_MOCK_AUTH) {
-    mockPhone = phoneNumber;
-    return;
-  }
-
-  if (NATIVE_FIREBASE_AVAILABLE) {
-    // Native EAS build — real SMS via @react-native-firebase
-    try {
-      await sendOTPNative(phoneNumber);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error('[Firebase Native] sendOTP failed:', msg);
-      throw new Error(msg || 'Failed to send OTP via native Firebase');
-    }
-  } else {
-    // Expo Go — JS SDK with fakeRecaptcha (only works with Firebase test numbers)
-    try {
-      confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, fakeRecaptchaVerifier);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error('[Firebase JS] sendOTP failed:', msg);
-      throw e;
-    }
-  }
-}
-
-export async function verifyOTP(code: string): Promise<boolean> {
-  if (Config.DEV_MOCK_AUTH) {
-    if (code === '123456') {
-      return true;
-    }
-    throw new Error('Invalid OTP. Use 123456 in dev mode.');
-  }
-
-  // Native path (EAS build)
-  if (nativeConfirmation) {
-    return verifyOTPNative(code);
-  }
-
-  // JS SDK path (Expo Go + Firebase test numbers)
-  if (!confirmationResult) {
-    throw new Error('No OTP request found. Call sendOTP first.');
-  }
-  try {
-    await confirmationResult.confirm(code);
-    return true;
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error('[Firebase] verifyOTP failed:', msg);
-    throw e;
-  }
-}
-
-export async function signOut(): Promise<void> {
-  if (Config.DEV_MOCK_AUTH) {
-    mockPhone = null;
-    return;
-  }
-  if (NATIVE_FIREBASE_AVAILABLE) {
-    try {
-      await signOutNative();
-    } catch (e: unknown) {
-      console.error('[Firebase Native] signOut failed:', e);
-    }
-  } else {
-    try {
-      await firebaseSignOut(auth);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error('[Firebase JS] signOut failed:', msg);
-    }
-  }
-}
+// ── getIdToken — called by the API interceptor ─────────────────────────────
 
 export async function getIdToken(): Promise<string | null> {
   if (Config.DEV_MOCK_AUTH) {
-    return mockPhone ? `dev-mock-token:${mockPhone}` : 'dev-mock-token';
+    return pendingLoginPhone
+      ? `dev-mock-token:${pendingLoginPhone}`
+      : 'dev-mock-token';
   }
-  // Native path (EAS build only — not called in Expo Go)
-  if (NATIVE_FIREBASE_AVAILABLE) {
-    try {
-      const token = await getIdTokenNative();
-      if (token) return token;
-    } catch (e: unknown) {
-      console.error('[Firebase Native] getIdToken failed:', e);
-    }
-  }
-  // JS SDK path (Expo Go)
-  const user = auth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
+  return getStoredToken();
 }
 
-export function getMockPhone(): string | null {
-  return mockPhone;
+// ── Login flow ─────────────────────────────────────────────────────────────────
+
+/**
+ * Step 1 — phone screen.
+ * Just stores the phone for later and returns 'needs_pin'.
+ * No network call — the backend validates at login time.
+ */
+export async function loginWithPhone(phone: string): Promise<'needs_pin'> {
+  pendingLoginPhone = phone;
+  return 'needs_pin';
+}
+
+/**
+ * Step 2 — PIN screen.
+ * In dev mode: accepts any 4-digit PIN, stores mock token, returns admin profile via /users/me.
+ * In production: calls POST /auth/login, stores JWT, returns user from response.
+ */
+export async function loginWithPin(phone: string, pin: string): Promise<User> {
+  if (Config.DEV_MOCK_AUTH) {
+    pendingLoginPhone = phone;
+    // Store mock token so the API interceptor has something to send
+    await storeToken(`dev-mock-token:${phone}`);
+    // getMe() is called in AuthContext after loginWithPin — that will return admin user
+    // For dev mode we just need the token stored; return a stub that AuthContext ignores
+    // by calling getMe() itself. So throw if PIN isn't 4 digits to give useful feedback.
+    if (pin.length !== 4 || !/^\d+$/.test(pin)) {
+      throw new Error('PIN must be exactly 4 digits.');
+    }
+    // Return profile via /users/me (uses the mock token just stored)
+    const { data } = await axios.get(`${Config.API_BASE_URL}/users/me`, {
+      headers: { Authorization: `Bearer dev-mock-token:${phone}` },
+    });
+    return data;
+  }
+
+  const { data } = await axios.post(`${Config.API_BASE_URL}/auth/login`, { phone, pin });
+  await storeToken(data.token);
+  return data.user as User;
+}
+
+// ── Sign out ───────────────────────────────────────────────────────────────────
+
+export async function signOut(): Promise<void> {
+  pendingLoginPhone = null;
+  await clearToken();
+}
+
+// ── Change PIN (authenticated) ─────────────────────────────────────────────────
+
+export async function setPin(newPin: string): Promise<void> {
+  const token = await getIdToken();
+  await axios.post(
+    `${Config.API_BASE_URL}/auth/set-pin`,
+    { new_pin: newPin },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+export function getPendingPhone(): string | null {
+  return pendingLoginPhone;
 }

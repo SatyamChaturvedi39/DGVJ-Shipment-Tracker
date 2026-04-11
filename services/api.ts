@@ -21,13 +21,6 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-export async function verifyToken(firebaseToken: string): Promise<User> {
-  const { data } = await api.post('/auth/verify-token', { firebase_token: firebaseToken });
-  return data;
-}
-
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 export async function getMe(): Promise<User> {
@@ -60,6 +53,7 @@ export async function createUser(payload: {
   phone: string;
   role: UserRole;
   company_name?: string;
+  pin?: string;
 }): Promise<User> {
   const { data } = await api.post('/users', payload);
   return data;

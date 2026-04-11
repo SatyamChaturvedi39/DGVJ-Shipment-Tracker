@@ -9,18 +9,197 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { updateMe } from '@/services/api';
+import { setPin } from '@/services/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
 
+// ─── Change PIN Modal ─────────────────────────────────────────────────────────
+
+function ChangePinModal({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const reset = () => {
+    setCurrentPin('');
+    setNewPin('');
+    setConfirmPin('');
+    setError('');
+    setSaving(false);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const handleSave = async () => {
+    if (!/^\d{4}$/.test(newPin)) {
+      setError('New PIN must be exactly 4 digits.');
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setError('PINs do not match.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await setPin(newPin);
+      Alert.alert('PIN Changed', 'Your PIN has been updated successfully.');
+      handleClose();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? e?.message ?? 'Failed to change PIN. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      <TouchableOpacity style={pinStyles.backdrop} activeOpacity={1} onPress={handleClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={pinStyles.wrapper}>
+        <View style={pinStyles.sheet}>
+          <View style={pinStyles.handle} />
+          <Text style={pinStyles.title}>Change PIN</Text>
+
+          {error ? (
+            <View style={pinStyles.errorBox}>
+              <Text style={pinStyles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <Input
+            label="New PIN (4 digits)"
+            value={newPin}
+            onChangeText={(t) => { setNewPin(t.replace(/[^0-9]/g, '').slice(0, 4)); setError(''); }}
+            placeholder="Enter new PIN"
+            keyboardType="number-pad"
+            maxLength={4}
+          />
+          <View style={{ height: 12 }} />
+          <Input
+            label="Confirm New PIN"
+            value={confirmPin}
+            onChangeText={(t) => { setConfirmPin(t.replace(/[^0-9]/g, '').slice(0, 4)); setError(''); }}
+            placeholder="Re-enter new PIN"
+            keyboardType="number-pad"
+            maxLength={4}
+          />
+          <View style={{ height: 20 }} />
+
+          <TouchableOpacity
+            style={[pinStyles.saveBtn, saving && pinStyles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator color="#FFFFFF" />
+              : <Text style={pinStyles.saveBtnText}>Save PIN</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={pinStyles.cancelBtn} onPress={handleClose}>
+            <Text style={pinStyles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const pinStyles = StyleSheet.create({
+  backdrop: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  wrapper: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  handle: {
+    width: 40, height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 16,
+  },
+  errorBox: {
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 13,
+  },
+  saveBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  saveBtnDisabled: { opacity: 0.5 },
+  saveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  cancelBtn: {
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});
+
+// ─── Main profile screen ──────────────────────────────────────────────────────
+
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
+  const barPaddingBottom = Math.max(insets.bottom, 16);
 
   const [name, setName] = useState(user?.name ?? '');
   const [companyName, setCompanyName] = useState(user?.company_name ?? '');
   const [saving, setSaving] = useState(false);
+  const [showChangePIN, setShowChangePIN] = useState(false);
 
   const hasChanges =
     name.trim() !== (user?.name ?? '') ||
@@ -63,7 +242,7 @@ export default function ProfileScreen() {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + barPaddingBottom }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Avatar */}
@@ -102,16 +281,21 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Change PIN */}
+        <TouchableOpacity style={styles.changePinBtn} onPress={() => setShowChangePIN(true)} activeOpacity={0.7}>
+          <Text style={styles.changePinIcon}>🔒</Text>
+          <Text style={styles.changePinText}>Change PIN</Text>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
         {/* Sign out */}
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.7}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
-
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Sticky save bar */}
-      <View style={styles.stickyBar}>
+      <View style={[styles.stickyBar, { paddingBottom: barPaddingBottom }]}>
         <TouchableOpacity
           style={[styles.saveBtn, (!hasChanges || saving) && styles.saveBtnDisabled]}
           onPress={handleSave}
@@ -123,6 +307,9 @@ export default function ProfileScreen() {
             : <Text style={styles.saveBtnText}>Save Changes</Text>}
         </TouchableOpacity>
       </View>
+
+      {/* Change PIN modal */}
+      <ChangePinModal visible={showChangePIN} onClose={() => setShowChangePIN(false)} />
     </KeyboardAvoidingView>
   );
 }
@@ -230,6 +417,37 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // Change PIN button
+  changePinBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  changePinIcon: {
+    fontSize: 18,
+  },
+  changePinText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  chevron: {
+    fontSize: 20,
+    color: Colors.textMuted,
+  },
+
   // Sign out
   signOutBtn: {
     height: 52,
@@ -254,7 +472,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },

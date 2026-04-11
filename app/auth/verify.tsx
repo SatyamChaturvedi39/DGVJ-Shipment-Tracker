@@ -13,55 +13,54 @@ import { Config } from '@/constants/config';
 import { OTPInput } from '@/components/ui/OTPInput';
 import { useAuth } from '@/hooks/useAuth';
 
+const PIN_LENGTH = 4;
+
 export default function VerifyScreen() {
-  const { verifyOTP } = useAuth();
-  const [code, setCode] = useState('');
+  const { verifyOTP, authError, clearAuthError } = useAuth();
+  const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState(30);
   const autoSubmittedRef = useRef(false);
 
+  // Auto-submit when all 4 digits are entered
   useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown]);
-
-  // Auto-submit when all 6 digits are entered
-  useEffect(() => {
-    if (code.length === 6 && !loading && !autoSubmittedRef.current) {
+    if (pin.length === PIN_LENGTH && !loading && !autoSubmittedRef.current) {
       autoSubmittedRef.current = true;
-      handleVerify(code);
+      handleVerify(pin);
     }
-    if (code.length < 6) {
+    if (pin.length < PIN_LENGTH) {
       autoSubmittedRef.current = false;
     }
-  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleVerify = async (codeToVerify: string) => {
+  // Show auth errors from context (e.g. wrong PIN, deactivated)
+  useEffect(() => {
+    if (authError) {
+      setError(authError);
+      setPin('');
+      autoSubmittedRef.current = false;
+      clearAuthError();
+      setLoading(false);
+    }
+  }, [authError, clearAuthError]);
+
+  const handleVerify = async (pinToVerify: string) => {
     setError('');
     setLoading(true);
     try {
-      await verifyOTP(codeToVerify);
+      await verifyOTP(pinToVerify);
       router.replace('/');
     } catch (e: any) {
-      setError(e.message || 'Invalid OTP. Please try again.');
-      setCode('');
+      setError(e.message || 'Incorrect PIN. Please try again.');
+      setPin('');
       autoSubmittedRef.current = false;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = () => {
-    setCountdown(30);
-    setCode('');
-    setError('');
-    autoSubmittedRef.current = false;
-  };
-
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       {/* Back */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
         <Text style={styles.backText}>←  Back</Text>
@@ -70,50 +69,33 @@ export default function VerifyScreen() {
       <View style={styles.container}>
         {/* Icon */}
         <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>✉</Text>
+          <Text style={styles.iconText}>🔒</Text>
         </View>
 
-        <Text style={styles.title}>Enter OTP</Text>
+        <Text style={styles.title}>Enter PIN</Text>
         <Text style={styles.subtitle}>
-          A 6-digit code was sent to your phone.
-          {Config.DEV_MOCK_AUTH ? ' (Dev: use 123456)' : ''}
+          Enter your 4-digit PIN to sign in.
+          {Config.DEV_MOCK_AUTH ? '\n(Dev: any 4-digit PIN works)' : ''}
         </Text>
 
         <View style={styles.otpWrap}>
-          <OTPInput value={code} onChange={setCode} />
+          <OTPInput value={pin} onChange={setPin} length={PIN_LENGTH} />
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Loading indicator shown below OTP boxes while verifying */}
+        {/* Loading indicator while verifying */}
         {loading && (
           <View style={styles.verifyingRow}>
             <ActivityIndicator size="small" color={Colors.primary} />
-            <Text style={styles.verifyingText}>Verifying…</Text>
+            <Text style={styles.verifyingText}>Signing in…</Text>
           </View>
         )}
 
-        {/* Resend */}
-        <View style={styles.resendRow}>
-          {countdown > 0 ? (
-            <Text style={styles.resendTimer}>
-              Resend code in  <Text style={styles.resendCount}>{countdown}s</Text>
-            </Text>
-          ) : (
-            <TouchableOpacity onPress={handleResend} activeOpacity={0.7}>
-              <Text style={styles.resendLink}>Resend OTP</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <Text style={styles.hint}>
+          Your PIN was set by your administrator.{'\n'}Contact Digvijay Express if you don't have one.
+        </Text>
       </View>
-
-      {/* Full-screen overlay while verifying (blocks interaction) */}
-      {loading && (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.overlayText}>Verifying…</Text>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -176,6 +158,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
+    lineHeight: 20,
   },
   verifyingRow: {
     flexDirection: 'row',
@@ -188,34 +171,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  resendRow: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  resendTimer: {
-    fontSize: 14,
+  hint: {
+    marginTop: 16,
+    fontSize: 12,
     color: Colors.textMuted,
-  },
-  resendCount: {
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  resendLink: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 14,
-  },
-  overlayText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 16,
   },
 });

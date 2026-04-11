@@ -23,6 +23,7 @@ class CreateUserRequest(BaseModel):
     phone: str
     role: Literal["employee", "customer"]
     company_name: Optional[str] = None
+    pin: Optional[str] = None  # 4-digit PIN set by admin at creation time
 
 
 class AdminUpdateUserRequest(BaseModel):

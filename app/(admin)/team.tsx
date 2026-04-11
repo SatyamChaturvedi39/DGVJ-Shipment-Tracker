@@ -93,8 +93,10 @@ interface AddModalState {
   name: string;
   phone: string;
   company: string;
+  pin: string;
   nameError: string;
   phoneError: string;
+  pinError: string;
   apiError: string;
   submitting: boolean;
 }
@@ -114,8 +116,10 @@ const EMPTY_ADD: AddModalState = {
   name: '',
   phone: '',
   company: '',
+  pin: '',
   nameError: '',
   phoneError: '',
+  pinError: '',
   apiError: '',
   submitting: false,
 };
@@ -169,14 +173,17 @@ export default function TeamScreen() {
   const submitAdd = async () => {
     const name = addModal.name.trim();
     const phone = addModal.phone.trim();
+    const pin = addModal.pin.trim();
     let nameError = '';
     let phoneError = '';
+    let pinError = '';
 
     if (!name) nameError = 'Name is required';
     if (!/^\d{10}$/.test(phone)) phoneError = 'Enter a valid 10-digit number';
+    if (pin && (!/^\d{4}$/.test(pin))) pinError = 'PIN must be exactly 4 digits';
 
-    if (nameError || phoneError) {
-      setAddModal((s) => ({ ...s, nameError, phoneError }));
+    if (nameError || phoneError || pinError) {
+      setAddModal((s) => ({ ...s, nameError, phoneError, pinError }));
       return;
     }
 
@@ -187,6 +194,7 @@ export default function TeamScreen() {
         phone: `+91${phone}`,
         role: addModal.role,
         company_name: addModal.company.trim() || undefined,
+        pin: pin || undefined,
       });
       setAddModal(EMPTY_ADD);
       loadUsers(true);
@@ -384,6 +392,18 @@ export default function TeamScreen() {
                 prefix="+91"
                 error={addModal.phoneError}
               />
+              <Input
+                label="Initial PIN (4 digits)"
+                value={addModal.pin}
+                onChangeText={(t) => setAddModal((s) => ({ ...s, pin: t.replace(/[^0-9]/g, '').slice(0, 4), pinError: '' }))}
+                placeholder="e.g. 1234"
+                keyboardType="number-pad"
+                maxLength={4}
+                error={addModal.pinError}
+              />
+              <Text style={styles.pinHint}>
+                Tell the user their PIN via WhatsApp or phone call. They can change it after logging in.
+              </Text>
               {addModal.role === 'customer' && (
                 <Input
                   label="Company Name (optional)"
@@ -699,6 +719,13 @@ const styles = StyleSheet.create({
   sheetActions: {
     gap: 8,
     marginTop: 8,
+  },
+  pinHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginBottom: 12,
+    marginTop: -4,
+    lineHeight: 17,
   },
   actionHeader: {
     flexDirection: 'row',

@@ -5,25 +5,29 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
-import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
 
 export default function LoginScreen() {
   const { login, setDevRole, authError, clearAuthError } = useAuth();
+  const { width } = useWindowDimensions();
+  const brandFontSize = width < 380 ? 34 : 42;
+
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSendOTP = async () => {
+  const handleContinue = async () => {
     if (phone.length < 10) {
       setError('Enter a valid 10-digit phone number');
       return;
@@ -34,7 +38,7 @@ export default function LoginScreen() {
       await login(`+91${phone}`);
       router.push('/auth/verify');
     } catch (e: any) {
-      setError(e.message || 'Failed to send OTP');
+      setError(e.message || 'Something went wrong. Try again.');
     } finally {
       setLoading(false);
     }
@@ -46,98 +50,106 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* ── Red brand header ─────────────────────────────────────── */}
-      <View style={styles.brandArea}>
-        <View style={styles.wordmarkRow}>
-          <Text style={styles.brandMain}>DIGVIJAY</Text>
-          <View style={styles.blrChip}>
-            <Text style={styles.blrChipText}>BLR</Text>
-          </View>
-        </View>
-        <Text style={styles.brandSub}>EXPRESS</Text>
-        <Text style={styles.tagline}>Bangalore Branch  ·  Shipment Tracking</Text>
-      </View>
-
-      {/* ── White body card ───────────────────────────────────────── */}
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        style={styles.body}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       >
-        {/* Auth error banner (e.g. unregistered number) */}
-        {authError ? (
-          <View style={styles.authError}>
-            <Text style={styles.authErrorText}>{authError}</Text>
+        {/* ── Red brand header ─────────────────────────────────────── */}
+        <View style={styles.brandArea}>
+          <View style={styles.wordmarkRow}>
+            <Text style={[styles.brandMain, { fontSize: brandFontSize }]}>DIGVIJAY</Text>
+            <View style={styles.blrChip}>
+              <Text style={styles.blrChipText}>BLR</Text>
+            </View>
           </View>
-        ) : null}
-
-        <Text style={styles.inputLabel}>Phone Number</Text>
-        <View style={[styles.phoneRow, error ? styles.phoneRowError : null]}>
-          <View style={styles.prefix}>
-            <Text style={styles.prefixText}>+91</Text>
-          </View>
-          <TextInput
-            style={styles.phoneInput}
-            value={phone}
-            onChangeText={t => {
-              setPhone(t);
-              if (error) setError('');
-              if (authError) clearAuthError();
-            }}
-            placeholder="9876543210"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="phone-pad"
-            maxLength={10}
-            returnKeyType="done"
-            onSubmitEditing={handleSendOTP}
-          />
+          <Text style={styles.brandSub}>EXPRESS</Text>
+          <Text style={styles.tagline}>Bangalore Branch  ·  Shipment Tracking</Text>
         </View>
-        {error ? <Text style={styles.fieldError}>{error}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.continueBtn, (phone.length < 10 || loading) && styles.continueBtnDisabled]}
-          onPress={handleSendOTP}
-          disabled={phone.length < 10 || loading}
-          activeOpacity={0.85}
+        {/* ── White body card ───────────────────────────────────────── */}
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={false}
         >
-          {loading
-            ? <ActivityIndicator color="#FFFFFF" />
-            : <Text style={styles.continueBtnText}>Continue  →</Text>}
-        </TouchableOpacity>
-
-        <Text style={styles.hint}>
-          We'll send a one-time code to verify your number.
-        </Text>
-
-        {/* Dev-only role selector */}
-        {Config.DEV_ROLE_SELECTOR && (
-          <View style={styles.devSection}>
-            <View style={styles.devBanner}>
-              <Text style={styles.devBannerText}>DEV ONLY</Text>
+          {/* Auth error banner */}
+          {authError ? (
+            <View style={styles.authError}>
+              <Text style={styles.authErrorText}>{authError}</Text>
             </View>
-            <Text style={styles.devLabel}>Skip OTP — Select Role</Text>
-            <View style={styles.devBtns}>
-              {(['admin', 'employee', 'customer'] as UserRole[]).map(role => (
-                <TouchableOpacity
-                  key={role}
-                  style={styles.devRoleBtn}
-                  onPress={() => handleDevRole(role)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.devRoleBtnText}>
-                    {role.charAt(0).toUpperCase() + role.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          ) : null}
+
+          <Text style={styles.inputLabel}>Phone Number</Text>
+          <View style={[styles.phoneRow, error ? styles.phoneRowError : null]}>
+            <View style={styles.prefix}>
+              <Text style={styles.prefixText}>+91</Text>
             </View>
+            <TextInput
+              style={styles.phoneInput}
+              value={phone}
+              onChangeText={t => {
+                setPhone(t);
+                if (error) setError('');
+                if (authError) clearAuthError();
+              }}
+              placeholder="9876543210"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="phone-pad"
+              maxLength={10}
+              returnKeyType="done"
+              onSubmitEditing={handleContinue}
+            />
           </View>
-        )}
+          {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.continueBtn, (phone.length < 10 || loading) && styles.continueBtnDisabled]}
+            onPress={handleContinue}
+            disabled={phone.length < 10 || loading}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color="#FFFFFF" />
+              : <Text style={styles.continueBtnText}>Continue  →</Text>}
+          </TouchableOpacity>
+
+          <Text style={styles.hint}>
+            Enter your registered phone number to sign in.
+          </Text>
+
+          {/* Dev-only role selector */}
+          {Config.DEV_ROLE_SELECTOR && (
+            <View style={styles.devSection}>
+              <View style={styles.devBanner}>
+                <Text style={styles.devBannerText}>DEV ONLY</Text>
+              </View>
+              <Text style={styles.devLabel}>Skip PIN — Select Role</Text>
+              <View style={styles.devBtns}>
+                {(['admin', 'employee', 'customer'] as UserRole[]).map(role => (
+                  <TouchableOpacity
+                    key={role}
+                    style={styles.devRoleBtn}
+                    onPress={() => handleDevRole(role)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.devRoleBtnText}>
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   safe: {
     flex: 1,
     backgroundColor: Colors.primary,
@@ -157,7 +169,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   brandMain: {
-    fontSize: 42,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 3,
@@ -195,9 +206,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+  },
+  bodyContent: {
     paddingHorizontal: 24,
     paddingTop: 28,
-    paddingBottom: 24,
+    paddingBottom: 32,
+    flexGrow: 1,
   },
 
   // Auth error

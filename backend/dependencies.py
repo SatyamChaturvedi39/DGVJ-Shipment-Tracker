@@ -1,33 +1,12 @@
 import os
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import firebase_admin
-from firebase_admin import credentials, auth as firebase_auth
+import jwt
 from database import supabase
+from utils.jwt_utils import decode_token
 
 security = HTTPBearer()
 
-# --- Firebase Admin init (once) ---
-
-def _init_firebase():
-    if firebase_admin._apps:
-        return
-    path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "firebase-service-account.json")
-    if os.path.exists(path):
-        cred = credentials.Certificate(path)
-        firebase_admin.initialize_app(cred)
-        print(f"[Firebase] Initialized with service account: {path}")
-    else:
-        # No service account — initialize without credentials.
-        # Token verification will fail until you add firebase-service-account.json.
-        # Download from: Firebase Console → Project Settings → Service accounts
-        project_id = os.getenv("FIREBASE_PROJECT_ID")
-        firebase_admin.initialize_app(options={"projectId": project_id})
-        print("[Firebase] WARNING: No service account found. Token verification disabled.")
-
-_init_firebase()
-
-# --- Dependency ---
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -53,14 +32,13 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="No admin user found for dev mock token")
 
     try:
-        decoded = firebase_auth.verify_id_token(token)
-        firebase_uid = decoded["uid"]
-    except Exception as e:
+        user_id = decode_token(token)
+    except jwt.InvalidTokenError as e:
         raise HTTPException(status_code=401, detail=f"Invalid or expired token: {e}")
 
-    result = supabase.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
+    result = supabase.table("users").select("*").eq("id", user_id).execute()
     if not result.data:
-        raise HTTPException(status_code=404, detail="User not found. Call /auth/verify-token first.")
+        raise HTTPException(status_code=404, detail="User not found.")
 
     user = result.data[0]
     if not user.get("is_active", True):
@@ -97,12 +75,11 @@ async def verify_token_string(token: str) -> dict:
         raise ValueError("No admin user found for dev mock token")
 
     try:
-        decoded = firebase_auth.verify_id_token(token)
-        firebase_uid = decoded["uid"]
-    except Exception as e:
+        user_id = decode_token(token)
+    except jwt.InvalidTokenError as e:
         raise ValueError(f"Invalid or expired token: {e}")
 
-    result = supabase.table("users").select("*").eq("firebase_uid", firebase_uid).execute()
+    result = supabase.table("users").select("*").eq("id", user_id).execute()
     if not result.data:
         raise ValueError("User not found")
     user = result.data[0]

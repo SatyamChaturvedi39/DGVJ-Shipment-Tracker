@@ -23,13 +23,13 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1B2A4A"
+        "backgroundColor": "#C62828"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
       "package": "com.digvijayexpress.blr",
       "versionCode": 1,
-      "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
           "apiKey": "PLACEHOLDER"
@@ -53,9 +53,7 @@
           "locationAlwaysAndWhenInUsePermission": "Digvijay BLR needs your location to track shipment delivery."
         }
       ],
-      "@react-native-community/datetimepicker",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},
