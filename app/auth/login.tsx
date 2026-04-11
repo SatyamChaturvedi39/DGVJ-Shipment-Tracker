@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
 
@@ -26,7 +34,6 @@ export default function LoginScreen() {
       await login(`+91${phone}`);
       router.push('/auth/verify');
     } catch (e: any) {
-      console.error('[Login] sendOTP error:', e?.message ?? e);
       setError(e.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
@@ -39,77 +46,89 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* ── Red brand header ─────────────────────────────────────── */}
+      <View style={styles.brandArea}>
+        <View style={styles.wordmarkRow}>
+          <Text style={styles.brandMain}>DIGVIJAY</Text>
+          <View style={styles.blrChip}>
+            <Text style={styles.blrChipText}>BLR</Text>
+          </View>
+        </View>
+        <Text style={styles.brandSub}>EXPRESS</Text>
+        <Text style={styles.tagline}>Bangalore Branch  ·  Shipment Tracking</Text>
+      </View>
+
+      {/* ── White body card ───────────────────────────────────────── */}
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.header}>
-          <View style={styles.wordmarkRow}>
-            <Text style={styles.brandName}>DIGVIJAY</Text>
-            <View style={styles.blrBadge}>
-              <Text style={styles.blrBadgeText}>BLR</Text>
-            </View>
+        {/* Auth error banner (e.g. unregistered number) */}
+        {authError ? (
+          <View style={styles.authError}>
+            <Text style={styles.authErrorText}>{authError}</Text>
           </View>
-          <Text style={styles.expressText}>EXPRESS</Text>
-          <Text style={styles.tagline}>Bangalore Branch — Shipment Tracking</Text>
-        </View>
+        ) : null}
 
-        <View style={styles.form}>
-          {authError ? (
-            <View style={styles.authErrorBox}>
-              <Text style={styles.authErrorText}>{authError}</Text>
-            </View>
-          ) : null}
-          <Input
-            label="Phone Number"
+        <Text style={styles.inputLabel}>Phone Number</Text>
+        <View style={[styles.phoneRow, error ? styles.phoneRowError : null]}>
+          <View style={styles.prefix}>
+            <Text style={styles.prefixText}>+91</Text>
+          </View>
+          <TextInput
+            style={styles.phoneInput}
             value={phone}
-            onChangeText={(t) => { setPhone(t); if (authError) clearAuthError(); }}
+            onChangeText={t => {
+              setPhone(t);
+              if (error) setError('');
+              if (authError) clearAuthError();
+            }}
             placeholder="9876543210"
+            placeholderTextColor={Colors.textMuted}
             keyboardType="phone-pad"
-            prefix="+91"
             maxLength={10}
-            error={error}
-          />
-          <Button
-            title="Send OTP  →"
-            onPress={handleSendOTP}
-            loading={loading}
-            disabled={phone.length < 10}
+            returnKeyType="done"
+            onSubmitEditing={handleSendOTP}
           />
         </View>
+        {error ? <Text style={styles.fieldError}>{error}</Text> : null}
 
-        {/* Dev-only role selector. Config.DEV_ROLE_SELECTOR is false when
-            EXPO_PUBLIC_DEV_MOCK_AUTH=false, so this block is completely absent
-            in production APK/AAB builds where that env var is not set to true. */}
+        <TouchableOpacity
+          style={[styles.continueBtn, (phone.length < 10 || loading) && styles.continueBtnDisabled]}
+          onPress={handleSendOTP}
+          disabled={phone.length < 10 || loading}
+          activeOpacity={0.85}
+        >
+          {loading
+            ? <ActivityIndicator color="#FFFFFF" />
+            : <Text style={styles.continueBtnText}>Continue  →</Text>}
+        </TouchableOpacity>
+
+        <Text style={styles.hint}>
+          We'll send a one-time code to verify your number.
+        </Text>
+
+        {/* Dev-only role selector */}
         {Config.DEV_ROLE_SELECTOR && (
           <View style={styles.devSection}>
             <View style={styles.devBanner}>
-              <Text style={styles.devBannerText}>DEV ONLY — Remove before release</Text>
+              <Text style={styles.devBannerText}>DEV ONLY</Text>
             </View>
-            <Text style={styles.devLabel}>Select Role to Skip OTP</Text>
-            <View style={styles.devButtons}>
-              <Button
-                title="Admin"
-                variant="secondary"
-                onPress={() => handleDevRole('admin')}
-                fullWidth={false}
-                style={styles.devBtn}
-              />
-              <Button
-                title="Employee"
-                variant="secondary"
-                onPress={() => handleDevRole('employee')}
-                fullWidth={false}
-                style={styles.devBtn}
-              />
-              <Button
-                title="Customer"
-                variant="secondary"
-                onPress={() => handleDevRole('customer')}
-                fullWidth={false}
-                style={styles.devBtn}
-              />
+            <Text style={styles.devLabel}>Skip OTP — Select Role</Text>
+            <View style={styles.devBtns}>
+              {(['admin', 'employee', 'customer'] as UserRole[]).map(role => (
+                <TouchableOpacity
+                  key={role}
+                  style={styles.devRoleBtn}
+                  onPress={() => handleDevRole(role)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.devRoleBtnText}>
+                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         )}
@@ -121,100 +140,204 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.primary,
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-  },
-  header: {
+
+  // ── Brand area (red)
+  brandArea: {
+    flex: 0.38,
     alignItems: 'center',
-    marginBottom: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   wordmarkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
+    gap: 10,
+    marginBottom: 4,
   },
-  brandName: {
-    fontSize: 36,
+  brandMain: {
+    fontSize: 42,
     fontWeight: '900',
-    color: Colors.primary,
-    letterSpacing: 2,
+    color: '#FFFFFF',
+    letterSpacing: 3,
   },
-  blrBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: 'center',
+  blrChip: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
   },
-  blrBadgeText: {
-    fontSize: 11,
+  blrChipText: {
+    fontSize: 12,
     fontWeight: '800',
-    color: Colors.textOnPrimary,
-    letterSpacing: 1,
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
   },
-  expressText: {
-    fontSize: 16,
+  brandSub: {
+    fontSize: 14,
     fontWeight: '600',
-    color: Colors.textPrimary,
-    letterSpacing: 4,
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 5,
     marginBottom: 10,
   },
   tagline: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.65)',
+    letterSpacing: 0.3,
   },
-  form: {
-    gap: 8,
+
+  // ── Body card (white)
+  body: {
+    flex: 0.62,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
   },
-  authErrorBox: {
+
+  // Auth error
+  authError: {
     backgroundColor: '#FFEBEE',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 12,
     borderWidth: 1,
     borderColor: Colors.error,
+    marginBottom: 16,
   },
   authErrorText: {
     color: Colors.error,
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 18,
   },
+
+  // Phone input
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  phoneRowError: {
+    borderColor: Colors.error,
+  },
+  prefix: {
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    backgroundColor: '#EFEFEF',
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  prefixText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+  },
+  fieldError: {
+    fontSize: 12,
+    color: Colors.error,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+
+  // Continue button
+  continueBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    height: 54,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 14,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  continueBtnDisabled: {
+    opacity: 0.45,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  continueBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  hint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  // Dev section
   devSection: {
-    marginTop: 40,
+    marginTop: 28,
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     alignItems: 'center',
   },
   devBanner: {
-    backgroundColor: '#C62828',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 6,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   devBannerText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   devLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.textMuted,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
-  devButtons: {
+  devBtns: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
-  devBtn: {
-    paddingHorizontal: 20,
+  devRoleBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  devRoleBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
 });

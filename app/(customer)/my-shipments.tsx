@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { getShipments } from '@/services/api';
+import { formatETA } from '@/utils/formatDate';
 import type { Shipment, ShipmentPhase, TransportMode } from '@/types';
 
 // MANUAL TEST REQUIRED: My Shipments shows permitted shipments only
@@ -31,13 +32,21 @@ const PHASE_BADGE: Record<ShipmentPhase, { bg: string; text: string }> = {
   completed:         { bg: '#E8F5E9', text: '#2E7D32' },
 };
 
+const PHASE_ACCENT: Record<ShipmentPhase, string> = {
+  pickup:            '#F57F17',
+  transit:           '#1565C0',
+  handed_to_carrier: '#6A1B9A',
+  out_for_delivery:  '#F57F17',
+  completed:         '#2E7D32',
+};
+
 function getStatusLabel(shipment: Shipment): string {
   switch (shipment.current_phase) {
-    case 'pickup':            return 'Driver heading to pickup';
-    case 'transit':           return `Heading to ${shipment.transport_mode === 'air' ? 'airport' : 'railway station'}`;
-    case 'handed_to_carrier': return `In transit via ${shipment.transport_mode === 'air' ? 'Air' : 'Train'}`;
-    case 'out_for_delivery':  return 'Out for delivery';
-    case 'completed':         return 'Delivered';
+    case 'pickup':            return '📦 Driver heading to pickup';
+    case 'transit':           return `🚗 Heading to ${shipment.transport_mode === 'air' ? 'airport' : 'railway station'}`;
+    case 'handed_to_carrier': return `${shipment.transport_mode === 'air' ? '✈' : '🚂'} In transit via ${shipment.transport_mode === 'air' ? 'Air' : 'Train'}`;
+    case 'out_for_delivery':  return '🛵 Out for delivery';
+    case 'completed':         return '✓ Delivered';
   }
 }
 
@@ -49,11 +58,12 @@ function getTransportIcon(mode: TransportMode): string {
 
 function ShipmentCard({ shipment }: { shipment: Shipment }) {
   const badge = PHASE_BADGE[shipment.current_phase];
+  const accentColor = PHASE_ACCENT[shipment.current_phase];
   const isCompleted = shipment.current_phase === 'completed';
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, { borderLeftColor: accentColor }]}
       activeOpacity={0.75}
       onPress={() => router.push(`/(customer)/shipment-tracking?id=${shipment.id}`)}
     >
@@ -66,7 +76,7 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
       {/* Route */}
       <View style={styles.routeRow}>
         <Text style={styles.routeCity}>{shipment.origin}</Text>
-        <Text style={styles.routeArrow}> → </Text>
+        <Text style={styles.routeArrow}>  →  </Text>
         <Text style={styles.routeCity}>{shipment.destination}</Text>
       </View>
 
@@ -80,14 +90,11 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
         {isCompleted ? null : (
           shipment.eta_date ? (
             <Text style={styles.eta}>
-              Expected: {shipment.eta_date}{shipment.eta_time ? ` at ${shipment.eta_time}` : ''}
+              ETA {formatETA(shipment.eta_date, shipment.eta_time)}
             </Text>
           ) : null
         )}
       </View>
-
-      {/* Tap hint */}
-      <Text style={styles.tapHint}>Tap to track →</Text>
     </TouchableOpacity>
   );
 }
@@ -280,15 +287,18 @@ const styles = StyleSheet.create({
 
   // Shipment card
   card: {
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderLeftWidth: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardTop: {
     flexDirection: 'row',
@@ -342,14 +352,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: '500',
   },
-  tapHint: {
-    fontSize: 12,
-    color: Colors.primary,
-    fontWeight: '600',
-    textAlign: 'right',
-    opacity: 0.7,
-  },
-
   // Empty state
   emptyState: {
     flex: 1,

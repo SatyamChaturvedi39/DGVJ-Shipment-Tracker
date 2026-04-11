@@ -7,13 +7,43 @@ from websocket.manager import manager
 
 router = APIRouter(tags=["tracking"])
 
-# Which status event indexes (0-based, sorted by sort_order) to mark completed per phase transition
-PHASE_EVENT_MAP = {
-    "transit":           [0],     # Picked Up (sort_order 1)
-    "handed_to_carrier": [1, 2],  # Heading to Carrier + Handed to Carrier (sort_order 2, 3)
-    "out_for_delivery":  [3, 4],  # Picked Up from Carrier + Out for Delivery (sort_order 4, 5)
-    "completed":         [5],     # Delivered (sort_order 6)
+# How many initial status events (sort_order 1–6, ascending) should be
+# marked is_completed=True when the shipment reaches each phase.
+# sync_events_to_phase() uses this to mark/unmark events correctly on
+# both forward transitions AND admin backward transitions.
+PHASE_COMPLETE_COUNT = {
+    "pickup": 0,           # nothing completed yet
+    "transit": 1,          # Picked Up
+    "handed_to_carrier": 3, # + Heading to Carrier + Handed to Carrier
+    "out_for_delivery": 5, # + Picked Up from Carrier + Out for Delivery
+    "completed": 6,        # + Delivered
 }
+
+
+def sync_events_to_phase(shipment_id: str, new_phase: str) -> None:
+    """Mark initial status events (sort_order 1–6) complete/incomplete
+    based on the new phase. Handles both forward and backward transitions."""
+    complete_count = PHASE_COMPLETE_COUNT.get(new_phase, 0)
+
+    events = (
+        supabase.table("status_events")
+        .select("id")
+        .eq("shipment_id", shipment_id)
+        .lte("sort_order", 6)
+        .order("sort_order")
+        .order("created_at")
+        .execute()
+    )
+    if not events.data:
+        return
+
+    to_complete = [e["id"] for e in events.data[:complete_count]]
+    to_incomplete = [e["id"] for e in events.data[complete_count:]]
+
+    if to_complete:
+        supabase.table("status_events").update({"is_completed": True}).in_("id", to_complete).execute()
+    if to_incomplete:
+        supabase.table("status_events").update({"is_completed": False}).in_("id", to_incomplete).execute()
 
 
 @router.put("/shipments/{shipment_id}/phase")
@@ -28,40 +58,45 @@ async def transition_phase(
 
     shipment = result.data[0]
 
-    # Employees can only advance phases for shipments they're assigned to.
-    # Pickup driver owns: pickup→transit, transit→handed_to_carrier
-    # Delivery driver owns: handed_to_carrier→out_for_delivery, out_for_delivery→completed
+    # ── Employee authorization ─────────────────────────────────────────────────
+    # Admins bypass all of this and can set any phase.
+    # Employees are constrained to their assigned role and allowed transitions.
     if user["role"] == "employee":
         uid = user["id"]
+        current_phase = shipment.get("current_phase")
         is_pickup = shipment.get("pickup_employee_id") == uid
         is_delivery = shipment.get("delivery_employee_id") == uid
+
         if not is_pickup and not is_delivery:
             raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
-        if body.phase in ("transit", "handed_to_carrier") and not is_pickup:
-            raise HTTPException(status_code=403, detail="Only the pickup driver can perform this action")
-        if body.phase in ("out_for_delivery", "completed") and not is_delivery:
-            raise HTTPException(status_code=403, detail="Only the delivery driver can perform this action")
 
+        if body.phase == "pickup":
+            # Undo pickup: pickup driver only, and only from transit
+            if not is_pickup:
+                raise HTTPException(status_code=403, detail="Only the pickup driver can undo a pickup")
+            if current_phase != "transit":
+                raise HTTPException(status_code=400, detail="Pickup can only be undone when shipment is in transit")
+        elif body.phase in ("transit", "handed_to_carrier"):
+            if not is_pickup:
+                raise HTTPException(status_code=403, detail="Only the pickup driver can perform this action")
+        elif body.phase in ("out_for_delivery", "completed"):
+            if not is_delivery:
+                raise HTTPException(status_code=403, detail="Only the delivery driver can perform this action")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid phase transition")
+
+    # ── Apply phase update ────────────────────────────────────────────────────
     updates: dict = {"current_phase": body.phase}
     if body.phase == "completed":
         updates["completed_at"] = datetime.now(timezone.utc).isoformat()
+    elif shipment.get("completed_at"):
+        # Going backward from completed — clear the completion timestamp
+        updates["completed_at"] = None
 
     supabase.table("shipments").update(updates).eq("id", shipment_id).execute()
 
-    # Mark relevant status events as completed
-    event_indexes = PHASE_EVENT_MAP.get(body.phase, [])
-    if event_indexes:
-        events = (
-            supabase.table("status_events")
-            .select("id")
-            .eq("shipment_id", shipment_id)
-            .order("sort_order")
-            .order("created_at")
-            .execute()
-        )
-        ids_to_complete = [events.data[i]["id"] for i in event_indexes if i < len(events.data)]
-        if ids_to_complete:
-            supabase.table("status_events").update({"is_completed": True}).in_("id", ids_to_complete).execute()
+    # Sync all initial status events to match the new phase (handles backward transitions)
+    sync_events_to_phase(shipment_id, body.phase)
 
     # Broadcast phase change via WebSocket
     await manager.broadcast(shipment_id, {
@@ -92,7 +127,6 @@ async def add_status_event(
 
     created = result.data[0]
 
-    # Broadcast to WebSocket clients watching this shipment
     await manager.broadcast(shipment_id, {
         "type": "status_update",
         "label": body.label,
@@ -100,7 +134,6 @@ async def add_status_event(
         "timestamp": created["created_at"],
     })
 
-    # Map created_at → timestamp so frontend StatusEvent type is satisfied
     return {**created, "timestamp": created["created_at"]}
 
 
@@ -109,7 +142,6 @@ async def update_location(
     body: LocationUpdateRequest,
     user: dict = Depends(require_role("employee")),
 ):
-    # Verify employee is assigned to this shipment
     shipment_result = supabase.table("shipments").select("pickup_employee_id,delivery_employee_id").eq("id", body.shipment_id).execute()
     if not shipment_result.data:
         raise HTTPException(status_code=404, detail="Shipment not found")
@@ -126,7 +158,6 @@ async def update_location(
     }
     supabase.table("location_updates").insert(row).execute()
 
-    # Broadcast to all WebSocket clients watching this shipment
     await manager.broadcast(body.shipment_id, {
         "type": "location",
         "lat": body.lat,
@@ -151,5 +182,4 @@ def get_latest_location(shipment_id: str, user: dict = Depends(get_current_user)
     if not result.data:
         return None
     row = result.data[0]
-    # Map created_at → timestamp so frontend LocationUpdate type is satisfied
     return {**row, "timestamp": row["created_at"]}

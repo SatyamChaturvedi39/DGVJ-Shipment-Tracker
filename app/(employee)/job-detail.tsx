@@ -503,6 +503,49 @@ export default function JobDetailScreen() {
         </View>
       )}
 
+      {/* ── Undo Pickup (pickup driver when in transit) ──────────────── */}
+      {isPickupEmployee && !isDeliveryEmployee && phase === 'transit' && !isCompleted && (
+        <View style={styles.undoCard}>
+          <TouchableOpacity
+            style={[styles.undoBtn, transitioning && styles.actionBtnDisabled]}
+            onPress={() => {
+              Alert.alert(
+                'Undo Pickup',
+                'This will reverse the pickup and stop GPS sharing. The shipment will return to pickup phase. Continue?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Undo Pickup',
+                    style: 'destructive',
+                    onPress: async () => {
+                      setTransitioning(true);
+                      stopTracking();
+                      try {
+                        await transitionPhase(id!, 'pickup');
+                        load();
+                      } catch (e: unknown) {
+                        const rawDetail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+                        const msg = Array.isArray(rawDetail)
+                          ? (rawDetail as { msg?: string }[]).map(d => d?.msg ?? String(d)).join(', ')
+                          : (typeof rawDetail === 'string' ? rawDetail : 'Failed to update. Try again.');
+                        Alert.alert('Error', msg);
+                      } finally {
+                        setTransitioning(false);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+            disabled={transitioning}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.undoBtnText}>↩  Undo Pickup</Text>
+          </TouchableOpacity>
+          <Text style={styles.undoHint}>Returns shipment to pickup phase and stops GPS</Text>
+        </View>
+      )}
+
       {/* ── Waiting for carrier (delivery driver, handed_to_carrier phase) */}
       {!isCompleted && !action && shipment.current_phase === 'handed_to_carrier' && !isDeliveryEmployee && (
         <View style={styles.waitCard}>
@@ -625,6 +668,30 @@ const styles = StyleSheet.create({
   },
   actionBtnDisabled: { opacity: 0.6 },
   actionBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
+
+  // Undo pickup
+  undoCard: {
+    marginBottom: 16,
+  },
+  undoBtn: {
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+  },
+  undoBtnText: {
+    color: Colors.error,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  undoHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 6,
+  },
 
   // Wait card
   waitCard: {

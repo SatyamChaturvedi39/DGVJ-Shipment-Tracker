@@ -27,29 +27,30 @@ function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
   );
 }
 
-// ─── Stats card ──────────────────────────────────────────────────────────────
+// ─── Stat pill (horizontal scroll) ───────────────────────────────────────────
 
-function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+function StatPill({
+  label, value, accent,
+}: { label: string; value: number; accent: string }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+    <View style={[styles.statPill, { borderTopColor: accent }]}>
+      <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
-// ─── Shipment row card ───────────────────────────────────────────────────────
+// ─── Shipment card ───────────────────────────────────────────────────────────
 
 function ShipmentCard({ shipment }: { shipment: Shipment }) {
   const borderColor = PHASE_BORDER[shipment.current_phase] ?? Colors.border;
   return (
     <TouchableOpacity
-      style={[styles.shipmentCard, { borderLeftColor: borderColor }]}
-      activeOpacity={0.7}
+      style={[styles.card, { borderLeftColor: borderColor }]}
+      activeOpacity={0.72}
       onPress={() => router.push(`/(admin)/shipment-detail?id=${shipment.id}`)}
     >
-      <View style={styles.shipmentCardTop}>
+      <View style={styles.cardTop}>
         <Text style={styles.trackingId}>{shipment.tracking_id}</Text>
         <PhaseBadge phase={shipment.current_phase} />
       </View>
@@ -58,15 +59,15 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
         {shipment.origin}  →  {shipment.destination}
       </Text>
 
-      <View style={styles.shipmentCardBottom}>
-        <View style={styles.transportTag}>
-          <Text style={styles.transportTagText}>
-            {shipment.transport_mode === 'air' ? '✈' : '🚂'}  {shipment.transport_number}
+      <View style={styles.cardBottom}>
+        <View style={styles.transportChip}>
+          <Text style={styles.transportChipText}>
+            {shipment.transport_mode === 'air' ? '✈' : '🚂'}  {shipment.transport_number ?? '—'}
           </Text>
         </View>
-        {shipment.eta_date ? (
-          <Text style={styles.eta}>ETA  {formatETA(shipment.eta_date, shipment.eta_time)}</Text>
-        ) : null}
+        <Text style={styles.eta}>
+          {shipment.eta_date ? formatETA(shipment.eta_date, shipment.eta_time) : ''}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -85,8 +86,7 @@ export default function AdminDashboard() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const data = await getShipments();
-      setShipments(data);
+      setShipments(await getShipments());
     } catch {
       setError('Could not load shipments. Check your connection.');
     } finally {
@@ -97,30 +97,26 @@ export default function AdminDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    load(true);
-  };
-
-  // ── Computed stats ──────────────────────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
-  const active = shipments.filter(s => s.current_phase !== 'completed');
-  const inTransit = shipments.filter(s => s.current_phase === 'transit').length;
-  const deliveredToday = shipments.filter(
+  const active      = shipments.filter(s => s.current_phase !== 'completed');
+  const pickup      = shipments.filter(s => s.current_phase === 'pickup').length;
+  const outDelivery = shipments.filter(s => s.current_phase === 'out_for_delivery').length;
+  const delivered   = shipments.filter(
     s => s.current_phase === 'completed' && s.completed_at?.slice(0, 10) === today
   ).length;
 
-  // ── Loading state ────────────────────────────────────────────────────────
+  const greetingHour = new Date().getHours();
+  const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Good afternoon' : 'Good evening';
+
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingLabel}>Loading shipments...</Text>
+        <Text style={styles.loadingLabel}>Loading shipments…</Text>
       </View>
     );
   }
 
-  // ── Error state ──────────────────────────────────────────────────────────
   if (error) {
     return (
       <View style={styles.center}>
@@ -136,36 +132,52 @@ export default function AdminDashboard() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); load(true); }}
+          tintColor={Colors.primary}
+        />
+      }
     >
-      {/* Header greeting */}
+      {/* ── Greeting header ─────────────────────────────────────── */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.greeting}>Good day,</Text>
+          <Text style={styles.greeting}>{greeting},</Text>
           <Text style={styles.adminName}>{user?.name ?? 'Admin'}</Text>
         </View>
-        <View style={styles.logoMark}>
-          <Text style={styles.logoText}>D</Text>
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarText}>
+            {(user?.name ?? 'A')[0].toUpperCase()}
+          </Text>
         </View>
       </View>
 
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <StatCard label="Active" value={active.length} icon="📦" />
-        <StatCard label="In Transit" value={inTransit} icon="✈" />
-        <StatCard label="Delivered Today" value={deliveredToday} icon="✅" />
-      </View>
+      {/* ── Stats horizontal scroll ──────────────────────────────── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.statsScroll}
+      >
+        <StatPill label="Active"          value={active.length}  accent={Colors.primary} />
+        <StatPill label="Pickup"          value={pickup}         accent="#F57F17" />
+        <StatPill label="Out for Delivery" value={outDelivery}   accent="#1565C0" />
+        <StatPill label="Delivered Today" value={delivered}      accent={Colors.success} />
+      </ScrollView>
 
-      {/* Active shipments list */}
-      <Text style={styles.sectionHeader}>Active Shipments ({active.length})</Text>
+      {/* ── Active list ──────────────────────────────────────────── */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeader}>Active Shipments</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{active.length}</Text>
+        </View>
+      </View>
 
       {active.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>📦</Text>
           <Text style={styles.emptyTitle}>No active shipments</Text>
-          <Text style={styles.emptySubtitle}>
-            Create one using the + tab below.
-          </Text>
+          <Text style={styles.emptySubtitle}>Tap the + tab to create one.</Text>
         </View>
       ) : (
         active.map(s => <ShipmentCard key={s.id} shipment={s} />)
@@ -177,38 +189,14 @@ export default function AdminDashboard() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  content:   { padding: 16, paddingBottom: 40 },
+  center:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 24 },
+
+  loadingLabel: { marginTop: 12, fontSize: 14, color: Colors.textSecondary },
+  errorText:    { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', marginBottom: 16 },
+  retryBtn:     { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  retryText:    { color: '#FFF', fontWeight: '700', fontSize: 15 },
 
   // Header
   headerRow: {
@@ -220,14 +208,14 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 14,
     color: Colors.textSecondary,
+    marginBottom: 2,
   },
   adminName: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.textPrimary,
-    marginTop: 2,
   },
-  logoMark: {
+  avatarCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -235,86 +223,92 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoText: {
-    color: '#FFFFFF',
+  avatarText: {
+    color: '#FFF',
     fontWeight: '800',
-    fontSize: 20,
+    fontSize: 18,
   },
 
   // Stats
-  statsRow: {
-    flexDirection: 'row',
+  statsScroll: {
     gap: 10,
+    paddingBottom: 4,
     marginBottom: 24,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 12,
-    padding: 14,
+  statPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     alignItems: 'center',
+    minWidth: 110,
+    borderTopWidth: 3,
     borderWidth: 1,
     borderColor: Colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
   },
-  statIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
   statValue: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
-    color: Colors.primary,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 4,
+    fontWeight: '600',
     textAlign: 'center',
-    fontWeight: '500',
-  },
-
-  // Loading label
-  loadingLabel: {
-    marginTop: 12,
-    fontSize: 14,
-    color: Colors.textSecondary,
   },
 
   // Section header
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   sectionHeader: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 12,
+  },
+  countBadge: {
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  countBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 
-  // Shipment cards
-  shipmentCard: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 12,
+  // Shipment card
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#E8E8E8',
     borderLeftWidth: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  shipmentCardTop: {
+  cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   trackingId: {
     fontSize: 15,
@@ -328,18 +322,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 10,
   },
-  shipmentCardBottom: {
+  cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  transportTag: {
-    backgroundColor: Colors.surface,
+  transportChip: {
+    backgroundColor: '#F8F9FA',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
-  transportTagText: {
+  transportChipText: {
     fontSize: 12,
     color: Colors.textSecondary,
     fontWeight: '500',
@@ -350,24 +346,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Phase badge
+  // Badge
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
 
   // Empty state
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 56,
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 52,
     marginBottom: 16,
   },
   emptyTitle: {
@@ -379,6 +375,5 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
-    textAlign: 'center',
   },
 });

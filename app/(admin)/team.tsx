@@ -21,6 +21,18 @@ import { getAllUsers, createUser, updateUser, deleteUser } from '@/services/api'
 import { useAuth } from '@/hooks/useAuth';
 import type { User, UserRole } from '@/types';
 
+// ─── Avatar color ────────────────────────────────────────────────────────────
+
+const AVATAR_COLORS = ['#C62828', '#1565C0', '#2E7D32', '#6A1B9A', '#E65100', '#00838F'];
+
+function getAvatarColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: UserRole }) {
@@ -43,6 +55,7 @@ const badgeStyles = StyleSheet.create({
 });
 
 function UserRow({ user, onPress }: { user: User; onPress: (u: User) => void }) {
+  const avatarColor = getAvatarColor(user.name ?? user.phone);
   return (
     <TouchableOpacity
       style={[styles.row, !user.is_active && styles.rowInactive]}
@@ -50,7 +63,7 @@ function UserRow({ user, onPress }: { user: User; onPress: (u: User) => void }) 
       activeOpacity={0.7}
     >
       <View style={styles.rowLeft}>
-        <View style={styles.avatar}>
+        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
           <Text style={styles.avatarText}>
             {(user.name ?? '?')[0].toUpperCase()}
           </Text>
@@ -589,18 +602,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: Colors.primary,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   rowInfo: {
     flex: 1,

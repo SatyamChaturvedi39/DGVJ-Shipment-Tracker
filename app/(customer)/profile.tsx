@@ -14,7 +14,6 @@ import { Colors } from '@/constants/colors';
 import { updateMe } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -55,9 +54,11 @@ export default function ProfileScreen() {
     );
   };
 
+  const initials = (user?.name ?? 'C').charAt(0).toUpperCase();
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -68,11 +69,12 @@ export default function ProfileScreen() {
         {/* Avatar */}
         <View style={styles.avatarWrapper}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(user?.name ?? 'C').charAt(0).toUpperCase()}
-            </Text>
+            <Text style={styles.avatarInitial}>{initials}</Text>
           </View>
-          <Text style={styles.roleBadge}>CUSTOMER</Text>
+          <Text style={styles.avatarName}>{user?.name ?? 'Customer'}</Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>CUSTOMER</Text>
+          </View>
         </View>
 
         {/* Fields */}
@@ -100,22 +102,27 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <Button
-          title={saving ? 'Saving…' : 'Save Changes'}
-          onPress={handleSave}
-          disabled={!hasChanges || saving}
-          style={styles.saveBtn}
-        />
-
-        {saving && (
-          <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />
-        )}
-
         {/* Sign out */}
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.7}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Sticky save bar */}
+      <View style={styles.stickyBar}>
+        <TouchableOpacity
+          style={[styles.saveBtn, (!hasChanges || saving) && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={!hasChanges || saving}
+          activeOpacity={0.85}
+        >
+          {saving
+            ? <ActivityIndicator color="#FFFFFF" />
+            : <Text style={styles.saveBtnText}>Save Changes</Text>}
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -123,60 +130,73 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: '#F8F9FA',
   },
   content: {
     padding: 20,
-    paddingBottom: 48,
+    paddingBottom: 24,
   },
 
   // Avatar
   avatarWrapper: {
     alignItems: 'center',
     marginBottom: 28,
-    marginTop: 8,
+    marginTop: 12,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  avatarText: {
-    fontSize: 34,
+  avatarInitial: {
+    fontSize: 40,
     fontWeight: '800',
     color: '#FFFFFF',
   },
+  avatarName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 6,
+  },
   roleBadge: {
+    backgroundColor: '#FDECEA',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+  },
+  roleBadgeText: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,
     color: Colors.primary,
-    backgroundColor: '#FDECEA',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
   },
 
   // Card
   card: {
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 18,
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -189,7 +209,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   readonlyField: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#F8F9FA',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -210,13 +230,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  saveBtn: {
-    marginBottom: 12,
-  },
-
   // Sign out
   signOutBtn: {
-    marginTop: 24,
     height: 52,
     borderRadius: 12,
     borderWidth: 1.5,
@@ -228,5 +243,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: Colors.primary,
+  },
+
+  // Sticky save bar
+  stickyBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+  saveBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    height: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  saveBtnDisabled: {
+    opacity: 0.4,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  saveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

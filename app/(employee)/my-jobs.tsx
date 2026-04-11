@@ -89,9 +89,13 @@ function JobCard({
 
 function TabBar({
   active,
+  activeCount,
+  completedCount,
   onChange,
 }: {
   active: 'active' | 'completed';
+  activeCount: number;
+  completedCount: number;
   onChange: (tab: 'active' | 'completed') => void;
 }) {
   return (
@@ -101,18 +105,36 @@ function TabBar({
         onPress={() => onChange('active')}
         activeOpacity={0.7}
       >
-        <Text style={[styles.tabText, active === 'active' && styles.tabTextActive]}>
-          Active
-        </Text>
+        <View style={styles.tabContent}>
+          <Text style={[styles.tabText, active === 'active' && styles.tabTextActive]}>
+            Active
+          </Text>
+          {activeCount > 0 && (
+            <View style={[styles.tabBadge, active === 'active' && styles.tabBadgeActive]}>
+              <Text style={[styles.tabBadgeText, active === 'active' && styles.tabBadgeTextActive]}>
+                {activeCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, active === 'completed' && styles.tabActive]}
         onPress={() => onChange('completed')}
         activeOpacity={0.7}
       >
-        <Text style={[styles.tabText, active === 'completed' && styles.tabTextActive]}>
-          Completed
-        </Text>
+        <View style={styles.tabContent}>
+          <Text style={[styles.tabText, active === 'completed' && styles.tabTextActive]}>
+            Completed
+          </Text>
+          {completedCount > 0 && (
+            <View style={[styles.tabBadge, active === 'completed' && styles.tabBadgeActive]}>
+              <Text style={[styles.tabBadgeText, active === 'completed' && styles.tabBadgeTextActive]}>
+                {completedCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -181,7 +203,7 @@ export default function MyJobs() {
   if (loading) {
     return (
       <>
-        <TabBar active={tab} onChange={setTab} />
+        <TabBar active={tab} activeCount={0} completedCount={0} onChange={setTab} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -193,7 +215,7 @@ export default function MyJobs() {
   if (error) {
     return (
       <>
-        <TabBar active={tab} onChange={setTab} />
+        <TabBar active={tab} activeCount={0} completedCount={0} onChange={setTab} />
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
@@ -206,7 +228,7 @@ export default function MyJobs() {
 
   return (
     <View style={styles.container}>
-      <TabBar active={tab} onChange={setTab} />
+      <TabBar active={tab} activeCount={activeJobs.length} completedCount={completedJobs.length} onChange={setTab} />
 
       <ScrollView
         contentContainerStyle={styles.list}
@@ -292,6 +314,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: Colors.primary,
   },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
@@ -299,6 +326,25 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: Colors.primary,
+  },
+  tabBadge: {
+    backgroundColor: Colors.border,
+    borderRadius: 10,
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  tabBadgeActive: {
+    backgroundColor: Colors.primary,
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
+  },
+  tabBadgeTextActive: {
+    color: '#FFFFFF',
   },
 
   // List

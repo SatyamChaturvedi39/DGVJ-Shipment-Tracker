@@ -722,19 +722,22 @@ export default function ShipmentTrackingScreen() {
 
       {/* ── Section 3: Live tracking / Carrier transit ───────────────── */}
       {isLiveTracking && (
-        <Section title={
-          phase === 'pickup'           ? 'DRIVER LOCATION (PICKUP)' :
-          phase === 'transit'          ? 'DRIVER LOCATION (HEADING TO CARRIER)' :
-                                         'DRIVER LOCATION (DELIVERY)'
-        }>
-          <LiveMapSection
-            shipmentId={shipment.id}
-            shipment={shipment}
-            phase={phase}
-            wsRef={wsRef}
-            onPhaseChange={load}
-          />
-        </Section>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {phase === 'pickup'  ? 'DRIVER LOCATION (PICKUP)' :
+             phase === 'transit' ? 'DRIVER LOCATION (HEADING TO CARRIER)' :
+                                   'DRIVER LOCATION (DELIVERY)'}
+          </Text>
+          <View style={styles.mapContainer}>
+            <LiveMapSection
+              shipmentId={shipment.id}
+              shipment={shipment}
+              phase={phase}
+              wsRef={wsRef}
+              onPhaseChange={load}
+            />
+          </View>
+        </View>
       )}
 
       {isHandedToCarrier && (
@@ -957,19 +960,28 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
+  // Map container (full-width with border)
+  mapContainer: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+    backgroundColor: Colors.surfaceElevated,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
   // Map
   map: {
-    height: 260,
-    borderRadius: 12,
-    overflow: 'hidden',
+    height: 300,
   },
   driverCard: {
     backgroundColor: Colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
     padding: 12,
-    marginTop: 10,
   },
   driverCardText: {
     fontSize: 13,
@@ -977,11 +989,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mapPlaceholder: {
-    height: 140,
-    borderRadius: 12,
+    height: 160,
     backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
