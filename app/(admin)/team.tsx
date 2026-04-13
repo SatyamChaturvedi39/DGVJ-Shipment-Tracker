@@ -107,6 +107,9 @@ interface ActionSheetState {
   editing: boolean;
   editName: string;
   editCompany: string;
+  resettingPin: boolean;
+  newPin: string;
+  pinError: string;
   submitting: boolean;
 }
 
@@ -130,6 +133,9 @@ const EMPTY_ACTION: ActionSheetState = {
   editing: false,
   editName: '',
   editCompany: '',
+  resettingPin: false,
+  newPin: '',
+  pinError: '',
   submitting: false,
 };
 
@@ -217,6 +223,9 @@ export default function TeamScreen() {
       editing: false,
       editName: u.name ?? '',
       editCompany: u.company_name ?? '',
+      resettingPin: false,
+      newPin: '',
+      pinError: '',
       submitting: false,
     });
   };
@@ -264,6 +273,24 @@ export default function TeamScreen() {
         },
       ]
     );
+  };
+
+  const handleResetPin = async () => {
+    if (!actionSheet.user) return;
+    const pin = actionSheet.newPin.trim();
+    if (!/^\d{4}$/.test(pin)) {
+      setActionSheet(s => ({ ...s, pinError: 'PIN must be exactly 4 digits' }));
+      return;
+    }
+    setActionSheet(s => ({ ...s, submitting: true, pinError: '' }));
+    try {
+      await updateUser(actionSheet.user!.id, { pin });
+      closeAction();
+      Alert.alert('PIN Reset', `PIN for ${actionSheet.user!.name ?? actionSheet.user!.phone} has been updated.`);
+    } catch {
+      setActionSheet(s => ({ ...s, submitting: false }));
+      Alert.alert('Error', 'Could not reset PIN. Try again.');
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -393,16 +420,16 @@ export default function TeamScreen() {
                 error={addModal.phoneError}
               />
               <Input
-                label="Initial PIN (4 digits)"
+                label="Initial PIN (optional)"
                 value={addModal.pin}
                 onChangeText={(t) => setAddModal((s) => ({ ...s, pin: t.replace(/[^0-9]/g, '').slice(0, 4), pinError: '' }))}
-                placeholder="e.g. 1234"
+                placeholder="Leave blank — user sets on first login"
                 keyboardType="number-pad"
                 maxLength={4}
                 error={addModal.pinError}
               />
               <Text style={styles.pinHint}>
-                Tell the user their PIN via WhatsApp or phone call. They can change it after logging in.
+                If you set a PIN, tell the user via WhatsApp. If left blank, the user will be prompted to create their own PIN on first login.
               </Text>
               {addModal.role === 'customer' && (
                 <Input
@@ -448,12 +475,17 @@ export default function TeamScreen() {
                   <RoleBadge role={actionSheet.user.role} />
                 </View>
 
-                {!actionSheet.editing ? (
+                {!actionSheet.editing && !actionSheet.resettingPin ? (
                   <View style={styles.actionButtons}>
                     <Button
                       title="Edit Details"
                       variant="outline"
                       onPress={() => setActionSheet((s) => ({ ...s, editing: true }))}
+                    />
+                    <Button
+                      title="Reset PIN"
+                      variant="outline"
+                      onPress={() => setActionSheet((s) => ({ ...s, resettingPin: true, newPin: '', pinError: '' }))}
                     />
                     <Button
                       title={actionSheet.user.is_active ? 'Deactivate' : 'Reactivate'}
@@ -465,6 +497,31 @@ export default function TeamScreen() {
                       title="Delete User"
                       variant="danger"
                       onPress={handleDelete}
+                    />
+                  </View>
+                ) : actionSheet.resettingPin ? (
+                  <View style={styles.actionButtons}>
+                    <Input
+                      label="New PIN (4 digits)"
+                      value={actionSheet.newPin}
+                      onChangeText={(t) => setActionSheet((s) => ({ ...s, newPin: t.replace(/[^0-9]/g, '').slice(0, 4), pinError: '' }))}
+                      placeholder="e.g. 5678"
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      error={actionSheet.pinError}
+                    />
+                    <Text style={styles.pinHint}>
+                      Tell the user their new PIN via WhatsApp or phone call.
+                    </Text>
+                    <Button
+                      title="Save New PIN"
+                      onPress={handleResetPin}
+                      loading={actionSheet.submitting}
+                    />
+                    <Button
+                      title="Cancel"
+                      variant="outline"
+                      onPress={() => setActionSheet((s) => ({ ...s, resettingPin: false }))}
                     />
                   </View>
                 ) : (

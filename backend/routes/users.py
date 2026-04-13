@@ -78,12 +78,21 @@ def create_user(body: CreateUserRequest, _user: dict = Depends(require_role("adm
 @router.put("/{user_id}")
 def admin_update_user(user_id: str, body: AdminUpdateUserRequest, _user: dict = Depends(require_role("admin"))):
     updates = body.model_dump(exclude_none=True)
+
+    # If admin is resetting the PIN, hash it and store as pin_hash
+    if "pin" in updates:
+        pin = updates.pop("pin")
+        if not pin.isdigit() or len(pin) != 4:
+            raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits.")
+        updates["pin_hash"] = _hash_pin(pin)
+
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     result = supabase.table("users").update(updates).eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
-    return result.data[0]
+    # Never return pin_hash to the client
+    return {k: v for k, v in result.data[0].items() if k != "pin_hash"}
 
 
 @router.delete("/{user_id}")

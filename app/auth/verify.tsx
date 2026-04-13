@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,8 +41,13 @@ export default function VerifyScreen() {
       await verifyOTP(pinToVerify);
       router.replace('/');
     } catch (e: any) {
-      const msg = e?.response?.data?.detail ?? e?.message ?? 'Incorrect PIN. Please try again.';
-      setError(msg);
+      const detail = e?.response?.data?.detail ?? e?.message ?? '';
+      // Backend signals no PIN was ever set — redirect to first-time setup
+      if (detail === 'FIRST_LOGIN') {
+        router.replace('/auth/setup-pin');
+        return;
+      }
+      setError(detail || 'Incorrect PIN. Please try again.');
       setPin('');
       autoSubmittedRef.current = false;
     } finally {
@@ -81,6 +87,20 @@ export default function VerifyScreen() {
             <Text style={styles.verifyingText}>Signing in…</Text>
           </View>
         )}
+
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert(
+              'Forgot PIN?',
+              'Contact your Digvijay Express administrator to reset your PIN. They can set a new one from the Team screen.',
+              [{ text: 'OK' }]
+            )
+          }
+          activeOpacity={0.7}
+          style={styles.forgotBtn}
+        >
+          <Text style={styles.forgotText}>Forgot PIN?</Text>
+        </TouchableOpacity>
 
         <Text style={styles.hint}>
           Your PIN was set by your administrator.{'\n'}Contact Digvijay Express if you don't have one.
@@ -160,6 +180,16 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  forgotBtn: {
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  forgotText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   hint: {
     marginTop: 16,

@@ -3,7 +3,8 @@ import axios from 'axios';
 import { Config } from '@/constants/config';
 import type { User } from '@/types';
 
-const TOKEN_KEY = 'auth_token';
+const TOKEN_KEY          = 'auth_token';
+const REMEMBERED_PHONE_KEY = 'remembered_phone';
 
 // Phone stored in memory for the current login attempt
 let pendingLoginPhone: string | null = null;
@@ -20,6 +21,20 @@ async function storeToken(token: string): Promise<void> {
 
 export async function clearToken(): Promise<void> {
   await AsyncStorage.removeItem(TOKEN_KEY);
+}
+
+// ── Remembered phone (Remember Me feature) ────────────────────────────────────
+
+export async function saveRememberedPhone(phone: string): Promise<void> {
+  await AsyncStorage.setItem(REMEMBERED_PHONE_KEY, phone);
+}
+
+export async function getRememberedPhone(): Promise<string | null> {
+  return AsyncStorage.getItem(REMEMBERED_PHONE_KEY);
+}
+
+export async function clearRememberedPhone(): Promise<void> {
+  await AsyncStorage.removeItem(REMEMBERED_PHONE_KEY);
 }
 
 // ── getIdToken — called by the API interceptor ─────────────────────────────
@@ -89,6 +104,23 @@ export async function setPin(newPin: string): Promise<void> {
     { new_pin: newPin },
     { headers: { Authorization: `Bearer ${token}` } },
   );
+}
+
+// ── First-login PIN setup (unauthenticated) ────────────────────────────────────
+
+/**
+ * Called from the setup-pin screen when a user logs in for the first time
+ * and no PIN has been set by the admin.
+ * Sets the PIN on the backend and logs the user in, returning their profile.
+ */
+export async function setupPinFirstLogin(phone: string, newPin: string, confirmPin: string): Promise<User> {
+  const { data } = await axios.post(`${Config.API_BASE_URL}/auth/setup-pin-first`, {
+    phone,
+    new_pin: newPin,
+    confirm_pin: confirmPin,
+  });
+  await storeToken(data.token);
+  return data.user as User;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

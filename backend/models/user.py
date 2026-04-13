@@ -31,3 +31,4 @@ class AdminUpdateUserRequest(BaseModel):
     role: Optional[Literal["employee", "customer"]] = None
     company_name: Optional[str] = None
     is_active: Optional[bool] = None
+    pin: Optional[str] = None  # Admin-set PIN reset (plain text, 4 digits)

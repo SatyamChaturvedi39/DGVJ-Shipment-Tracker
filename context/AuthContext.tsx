@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useState } from 'react';
 import {
   loginWithPhone,
   loginWithPin,
+  setupPinFirstLogin,
   signOut as signOutService,
   getPendingPhone,
   getStoredToken,
@@ -18,6 +19,7 @@ interface AuthState {
   clearAuthError: () => void;
   login: (phone: string) => Promise<void>;
   verifyOTP: (pin: string) => Promise<void>;
+  setupFirstPin: (phone: string, newPin: string, confirmPin: string) => Promise<void>;
   logout: () => Promise<void>;
   setDevRole: (role: UserRole) => void;
 }
@@ -30,6 +32,7 @@ export const AuthContext = createContext<AuthState>({
   clearAuthError: () => {},
   login: async () => {},
   verifyOTP: async () => {},
+  setupFirstPin: async () => {},
   logout: async () => {},
   setDevRole: () => {},
 });
@@ -114,6 +117,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pendingPhone]);
 
+  // ── First-login PIN setup ────────────────────────────────────────────────────
+  const setupFirstPin = useCallback(async (phone: string, newPin: string, confirmPin: string) => {
+    setIsLoading(true);
+    try {
+      const profile = await setupPinFirstLogin(phone, newPin, confirmPin);
+      setUser(profile);
+    } catch (e: any) {
+      setIsLoading(false);
+      throw e;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // ── Logout ───────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
     await signOutService();
@@ -138,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearAuthError,
         login,
         verifyOTP,
+        setupFirstPin,
         logout,
         setDevRole,
       }}

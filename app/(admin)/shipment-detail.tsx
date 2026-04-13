@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PHASE_CONFIG, PHASE_ORDER } from '@/constants/phases';
-import { getShipment, getEmployees, addStatusEvent, transitionPhase } from '@/services/api';
+import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase } from '@/services/api';
 import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 import type { ShipmentDetail, StatusEvent, User, ShipmentPhase } from '@/types';
 
@@ -257,6 +257,7 @@ export default function ShipmentDetailScreen() {
 
   const [shipment, setShipment]         = useState<ShipmentDetail | null>(null);
   const [employees, setEmployees]       = useState<User[]>([]);
+  const [customerMap, setCustomerMap]   = useState<Record<string, string>>({});
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
   const [settingPhase, setSettingPhase] = useState(false);
@@ -268,9 +269,10 @@ export default function ShipmentDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [detail, emps] = await Promise.all([getShipment(id), getEmployees()]);
+      const [detail, emps, customers] = await Promise.all([getShipment(id), getEmployees(), getCustomers()]);
       setShipment(detail);
       setEmployees(emps);
+      setCustomerMap(Object.fromEntries(customers.map(c => [c.id, c.name ?? c.phone])));
     } catch {
       setError('Could not load shipment details.');
     } finally {
@@ -460,7 +462,7 @@ export default function ShipmentDetailScreen() {
             {shipment.customer_ids.map(cid => (
               <View key={cid} style={styles.customerRow}>
                 <View style={styles.customerDot} />
-                <Text style={styles.customerName}>{cid}</Text>
+                <Text style={styles.customerName}>{customerMap[cid] ?? cid}</Text>
               </View>
             ))}
           </Section>

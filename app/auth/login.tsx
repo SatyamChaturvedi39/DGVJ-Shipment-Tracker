@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
 import { useAuth } from '@/hooks/useAuth';
+import { getRememberedPhone, saveRememberedPhone, clearRememberedPhone } from '@/services/auth';
 import type { UserRole } from '@/types';
 
 export default function LoginScreen() {
@@ -23,9 +24,17 @@ export default function LoginScreen() {
   const { width } = useWindowDimensions();
   const isSmall = width < 380;
 
-  const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [phone, setPhone]         = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+
+  // Pre-fill remembered phone on mount
+  useEffect(() => {
+    getRememberedPhone().then(saved => {
+      if (saved) setPhone(saved.replace('+91', ''));
+    });
+  }, []);
 
   const handleContinue = async () => {
     if (phone.length < 10) {
@@ -35,6 +44,11 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
     try {
+      if (rememberMe) {
+        await saveRememberedPhone(phone);
+      } else {
+        await clearRememberedPhone();
+      }
       await login(`+91${phone}`);
       router.push('/auth/verify');
     } catch (e: any) {
@@ -116,6 +130,18 @@ export default function LoginScreen() {
             />
           </View>
           {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+
+          {/* Remember Me */}
+          <TouchableOpacity
+            style={styles.rememberRow}
+            onPress={() => setRememberMe(v => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.rememberLabel}>Remember my number</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.continueBtn, (phone.length < 10 || loading) && styles.continueBtnDisabled]}
@@ -316,6 +342,40 @@ const styles = StyleSheet.create({
     color: Colors.error,
     marginBottom: 10,
     marginLeft: 4,
+  },
+
+  // Remember Me
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 2,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  checkmark: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    lineHeight: 14,
+  },
+  rememberLabel: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
 
   // Continue button

@@ -61,7 +61,7 @@ export async function createUser(payload: {
 
 export async function updateUser(
   id: string,
-  payload: { name?: string; role?: UserRole; company_name?: string; is_active?: boolean }
+  payload: { name?: string; role?: UserRole; company_name?: string; is_active?: boolean; pin?: string }
 ): Promise<User> {
   const { data } = await api.put(`/users/${id}`, payload);
   return data;
