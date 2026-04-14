@@ -17,6 +17,7 @@ class CreateShipmentRequest(BaseModel):
 
 
 class UpdateShipmentRequest(BaseModel):
+    tracking_id: Optional[str] = None
     origin: Optional[str] = None
     destination: Optional[str] = None
     transport_mode: Optional[Literal["train", "air"]] = None

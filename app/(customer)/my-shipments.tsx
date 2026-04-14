@@ -101,12 +101,15 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
+type TabKey = 'active' | 'history';
+
 export default function MyShipments() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<TabKey>('active');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -130,9 +133,13 @@ export default function MyShipments() {
     load(true);
   };
 
-  // Filter by tracking ID, origin, or destination
+  // Split by tab first, then filter by query
+  const tabShipments = activeTab === 'active'
+    ? shipments.filter(s => s.current_phase !== 'completed')
+    : shipments.filter(s => s.current_phase === 'completed');
+
   const filtered = query.trim()
-    ? shipments.filter(s => {
+    ? tabShipments.filter(s => {
         const q = query.toLowerCase();
         return (
           s.tracking_id.toLowerCase().includes(q) ||
@@ -140,7 +147,7 @@ export default function MyShipments() {
           s.destination.toLowerCase().includes(q)
         );
       })
-    : shipments;
+    : tabShipments;
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
@@ -163,8 +170,27 @@ export default function MyShipments() {
     );
   }
 
+  const activeCount  = shipments.filter(s => s.current_phase !== 'completed').length;
+  const historyCount = shipments.filter(s => s.current_phase === 'completed').length;
+
   return (
     <View style={styles.container}>
+      {/* Tab bar */}
+      <View style={styles.tabBar}>
+        {(['active', 'history'] as TabKey[]).map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => { setActiveTab(tab); setQuery(''); }}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab === 'active' ? `Active  ${activeCount > 0 ? `(${activeCount})` : ''}` : `History  ${historyCount > 0 ? `(${historyCount})` : ''}`}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Search bar */}
       <View style={styles.searchWrapper}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -198,14 +224,26 @@ export default function MyShipments() {
       >
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>{shipments.length === 0 ? '📦' : '🔍'}</Text>
+            <Text style={styles.emptyIcon}>
+              {query.trim() ? '🔍' : activeTab === 'active' ? '📦' : '✅'}
+            </Text>
             <Text style={styles.emptyTitle}>
-              {shipments.length === 0 ? 'No shipments assigned to you yet' : 'No results found'}
+              {query.trim()
+                ? 'No results found'
+                : activeTab === 'active'
+                ? shipments.length === 0
+                  ? 'No shipments assigned to you yet'
+                  : 'No active shipments'
+                : 'No completed shipments yet'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {shipments.length === 0
+              {query.trim()
+                ? `No shipments match "${query}". Try a different search.`
+                : activeTab === 'active' && shipments.length === 0
                 ? 'Contact Digvijay Express to get access to your shipments.'
-                : `No shipments match "${query}". Try a different search.`}
+                : activeTab === 'history'
+                ? 'Completed shipments will appear here.'
+                : 'All your shipments are completed.'}
             </Text>
           </View>
         ) : (
@@ -246,6 +284,33 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
+  },
+
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surfaceElevated,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: Colors.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  tabTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
 
   // Search bar

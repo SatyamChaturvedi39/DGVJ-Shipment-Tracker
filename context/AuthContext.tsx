@@ -17,7 +17,7 @@ interface AuthState {
   isAuthenticated: boolean;
   authError: string | null;
   clearAuthError: () => void;
-  login: (phone: string) => Promise<void>;
+  login: (phone: string) => Promise<'needs_pin' | 'first_login'>;
   verifyOTP: (pin: string) => Promise<void>;
   setupFirstPin: (phone: string, newPin: string, confirmPin: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -30,7 +30,7 @@ export const AuthContext = createContext<AuthState>({
   isAuthenticated: false,
   authError: null,
   clearAuthError: () => {},
-  login: async () => {},
+  login: async () => 'needs_pin' as const,
   verifyOTP: async () => {},
   setupFirstPin: async () => {},
   logout: async () => {},
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ── Login: phone screen ──────────────────────────────────────────────────────
   const login = useCallback(async (phone: string) => {
     setPendingPhone(phone);
-    await loginWithPhone(phone);
+    return await loginWithPhone(phone);
   }, []);
 
   // ── Verify: PIN screen ───────────────────────────────────────────────────────

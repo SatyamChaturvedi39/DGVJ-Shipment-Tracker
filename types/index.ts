@@ -60,6 +60,7 @@ export interface StatusEvent {
   description: string;
   timestamp: string;
   is_completed: boolean;
+  sort_order?: number;
 }
 
 export interface Company {

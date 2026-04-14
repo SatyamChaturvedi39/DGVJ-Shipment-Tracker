@@ -52,18 +52,39 @@ export function formatFullDate(timestamp: string | null | undefined): string {
 }
 
 /**
- * Returns a human-readable ETA string, e.g. "1 May 2026".
+ * Returns a human-readable ETA string, e.g. "1 May 2026  ·  2:30 PM".
+ * Uses noon UTC when no time is given to avoid date-shift due to timezone offset.
  */
 export function formatETA(etaDate: string | null | undefined, etaTime?: string | null): string {
   if (!etaDate) return '—';
-  const dateStr = etaTime ? `${etaDate}T${etaTime}:00Z` : `${etaDate}T00:00:00Z`;
+  // Use noon UTC so the date stays correct across timezones (avoids midnight rollover)
+  const hasTime = etaTime && etaTime.trim().length > 0;
+  const dateStr = hasTime ? `${etaDate}T${etaTime}:00` : `${etaDate}T12:00:00Z`;
   const d = safeParse(dateStr);
-  if (!d) return etaDate; // fallback to raw string
-  return d.toLocaleDateString('en-IN', {
+  if (!d) {
+    // Last-resort: parse just the date part manually to avoid any timezone weirdness
+    const parts = etaDate.split('-');
+    if (parts.length === 3) {
+      const yr = parseInt(parts[0], 10);
+      const mo = parseInt(parts[1], 10) - 1;
+      const dy = parseInt(parts[2], 10);
+      const fallback = new Date(yr, mo, dy, 12, 0, 0);
+      if (!isNaN(fallback.getTime())) {
+        return fallback.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+    }
+    return etaDate;
+  }
+  const datePart = d.toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
+  if (hasTime) {
+    const timePart = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    return `${datePart}  ·  ${timePart}`;
+  }
+  return datePart;
 }
 
 /**

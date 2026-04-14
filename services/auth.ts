@@ -52,12 +52,15 @@ export async function getIdToken(): Promise<string | null> {
 
 /**
  * Step 1 — phone screen.
- * Just stores the phone for later and returns 'needs_pin'.
- * No network call — the backend validates at login time.
+ * Calls /auth/check-phone to check if user exists and has a PIN set.
+ * Returns 'needs_pin' (go to verify screen) or 'first_login' (go to setup-pin screen).
+ * In dev mode: skips the network call and always returns 'needs_pin'.
  */
-export async function loginWithPhone(phone: string): Promise<'needs_pin'> {
+export async function loginWithPhone(phone: string): Promise<'needs_pin' | 'first_login'> {
   pendingLoginPhone = phone;
-  return 'needs_pin';
+  if (Config.DEV_MOCK_AUTH) return 'needs_pin';
+  const { data } = await axios.post(`${Config.API_BASE_URL}/auth/check-phone`, { phone });
+  return data.status as 'needs_pin' | 'first_login';
 }
 
 /**

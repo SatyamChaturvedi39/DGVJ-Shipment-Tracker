@@ -16,6 +16,10 @@ def _verify_pin(pin: str, hashed: str) -> bool:
     return bcrypt.checkpw(pin.encode(), hashed.encode())
 
 
+class CheckPhoneRequest(BaseModel):
+    phone: str
+
+
 class LoginRequest(BaseModel):
     phone: str
     pin: str
@@ -29,6 +33,27 @@ class SetupPinFirstRequest(BaseModel):
     phone: str
     new_pin: str
     confirm_pin: str
+
+
+@router.post("/check-phone")
+def check_phone(body: CheckPhoneRequest):
+    """
+    Pre-login check: returns 'needs_pin' if user has a PIN set, 'first_login' if not.
+    Frontend uses this to route directly to setup-pin screen instead of verify screen.
+    """
+    result = supabase.table("users").select("id,pin_hash,is_active").eq("phone", body.phone).execute()
+    if not result.data:
+        raise HTTPException(
+            status_code=403,
+            detail="Your number is not registered. Contact Digvijay Express to get access."
+        )
+    user = result.data[0]
+    if not user.get("is_active", True):
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has been deactivated. Contact Digvijay Express."
+        )
+    return {"status": "first_login" if not user.get("pin_hash") else "needs_pin"}
 
 
 @router.post("/login")

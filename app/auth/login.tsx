@@ -49,8 +49,8 @@ export default function LoginScreen() {
       } else {
         await clearRememberedPhone();
       }
-      await login(`+91${phone}`);
-      router.push('/auth/verify');
+      const status = await login(`+91${phone}`);
+      router.push(status === 'first_login' ? '/auth/setup-pin' : '/auth/verify');
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Try again.');
     } finally {

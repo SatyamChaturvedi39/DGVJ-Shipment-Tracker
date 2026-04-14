@@ -17,128 +17,113 @@ const path = require('path');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-const BRAND_RED    = '#C62828';
-const WHITE        = '#FFFFFF';
-const RED_DARK     = '#8E0000';   // used for subtle inner shadow / depth on D
+const BRAND_RED = '#C62828';
+const WHITE     = '#FFFFFF';
 
-// ── Helper: draw rounded-square background ────────────────────────────────────
-function drawRoundedRect(ctx, x, y, w, h, r) {
+// ── Draw a single icon ────────────────────────────────────────────────────────
+function generate(size, withBackground) {
+  const canvas = createCanvas(size, size);
+  const ctx    = canvas.getContext('2d');
+  const cx     = size / 2;
+  const cy     = size / 2;
+
+  if (withBackground) {
+    ctx.fillStyle = BRAND_RED;
+    ctx.fillRect(0, 0, size, size);
+  } else {
+    ctx.clearRect(0, 0, size, size);
+  }
+
+  // ── "D" lettermark — drawn as a custom path for crispness ──────────────────
+  // Strategy: large rounded D using bezier curves.
+  // The D is ~68% of canvas height, horizontally centred with slight left offset.
+
+  const letterH = size * 0.68;          // total letter height
+  const stemW   = size * 0.13;          // stem (vertical bar) width
+  const letterTop    = cy - letterH / 2;
+  const letterBottom = cy + letterH / 2;
+  const stemLeft     = cx - size * 0.22;
+  const stemRight    = stemLeft + stemW;
+
+  // Outer bounding right edge of the bow
+  const bowRight = cx + size * 0.22;
+  const bowCx    = stemRight + (bowRight - stemRight) / 2 + size * 0.03;
+  const bowRY    = letterH / 2;        // vertical radius
+  const bowRX    = bowRight - bowCx;   // horizontal radius
+
+  // Corner rounding for stem top/bottom
+  const cornerR = size * 0.04;
+
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-// ── Draw the "D" lettermark ───────────────────────────────────────────────────
-// Draws a heavy white "D" centred on (cx, cy), sized ~55% of canvas.
-function drawD(ctx, cx, cy, size) {
-  // We'll draw the D as a filled path for maximum crispness.
-  // Stem: vertical rectangle on the left.
-  // Bow:  large arc on the right.
-  const stemW  = size * 0.18;   // width of vertical stem
-  const height = size * 0.70;   // total height of the letterform
-  const top    = cy - height / 2;
-  const bottom = cy + height / 2;
-  const left   = cx - size * 0.28;
-  const right  = left + stemW;
-
-  // Outer radius of the bow — full width of the D
-  const bowRight  = cx + size * 0.30;
-  const bowRadius = (bottom - top) / 2;
-
-  ctx.beginPath();
-  // Start at top-left of stem
-  ctx.moveTo(left, top);
-  // Top of stem
-  ctx.lineTo(bowRight - bowRadius * 0.15, top);
-  // Top-right corner rounding
-  ctx.quadraticCurveTo(bowRight + stemW, top, bowRight + stemW, top + bowRadius * 0.3);
-  // Right arc (outer)
-  ctx.arc(left + stemW / 2 + (bowRight - left - stemW / 2), cy, bowRadius, -Math.PI * 0.85, Math.PI * 0.85);
-  // Bottom-right corner rounding
-  ctx.quadraticCurveTo(bowRight + stemW, bottom, bowRight - bowRadius * 0.15, bottom);
-  // Bottom of stem
-  ctx.lineTo(left, bottom);
+  // Top-left corner
+  ctx.moveTo(stemLeft + cornerR, letterTop);
+  // Top edge → top-right of bow
+  ctx.lineTo(bowCx - size * 0.10, letterTop);
+  // Top-right arc of bow
+  ctx.bezierCurveTo(
+    bowRight, letterTop,
+    bowRight + size * 0.10, cy - bowRY * 0.1,
+    bowRight + size * 0.10, cy
+  );
+  // Bottom-right arc of bow
+  ctx.bezierCurveTo(
+    bowRight + size * 0.10, cy + bowRY * 0.1,
+    bowRight, letterBottom,
+    bowCx - size * 0.10, letterBottom
+  );
+  // Bottom edge back to stem
+  ctx.lineTo(stemLeft + cornerR, letterBottom);
+  // Bottom-left corner
+  ctx.arcTo(stemLeft, letterBottom, stemLeft, letterBottom - cornerR, cornerR);
+  ctx.lineTo(stemLeft, letterTop + cornerR);
+  // Top-left corner
+  ctx.arcTo(stemLeft, letterTop, stemLeft + cornerR, letterTop, cornerR);
   ctx.closePath();
   ctx.fillStyle = WHITE;
   ctx.fill();
 
-  // Cutout — inner "hole" of the D
-  const innerLeft  = right;
-  const innerTop   = top + height * 0.14;
-  const innerBot   = bottom - height * 0.14;
-  const innerH     = innerBot - innerTop;
-  const innerBowR  = innerH / 2;
-  const innerRight = bowRight + stemW * 0.5;
+  // Inner cutout (counter of the D)
+  const innerPad   = size * 0.055;
+  const innerTop   = letterTop + innerPad;
+  const innerBot   = letterBottom - innerPad;
+  const innerLeft  = stemRight + innerPad * 0.5;
+  const innerCx    = bowCx + size * 0.015;
+  const innerRY    = (innerBot - innerTop) / 2;
+  const innerBowR  = bowRight - innerPad * 0.5;
 
   ctx.beginPath();
   ctx.moveTo(innerLeft, innerTop);
-  ctx.lineTo(innerRight - innerBowR * 0.2, innerTop);
-  ctx.arc(innerLeft + (innerRight - innerLeft - innerBowR * 0.2), cy, innerBowR, -Math.PI * 0.80, Math.PI * 0.80);
+  ctx.lineTo(innerCx - size * 0.06, innerTop);
+  ctx.bezierCurveTo(
+    innerBowR, innerTop,
+    innerBowR + size * 0.06, innerTop + innerRY * 0.1,
+    innerBowR + size * 0.06, innerTop + innerRY
+  );
+  ctx.bezierCurveTo(
+    innerBowR + size * 0.06, innerBot - innerRY * 0.1,
+    innerBowR, innerBot,
+    innerCx - size * 0.06, innerBot
+  );
   ctx.lineTo(innerLeft, innerBot);
   ctx.closePath();
-  ctx.fillStyle = BRAND_RED;
+  ctx.fillStyle = withBackground ? BRAND_RED : 'rgba(0,0,0,0)';
   ctx.fill();
-}
-
-// ── Draw BLR text ─────────────────────────────────────────────────────────────
-function drawBLR(ctx, cx, yCenter, fontSize) {
-  ctx.font      = `800 ${fontSize}px sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.letterSpacing = '6px';
-  ctx.fillText('BLR', cx, yCenter);
-}
-
-// ── Generate one canvas ───────────────────────────────────────────────────────
-function generate(size, withBackground, withBLR) {
-  const canvas = createCanvas(size, size);
-  const ctx    = canvas.getContext('2d');
-
-  if (withBackground) {
-    // Solid red fill (iOS auto-clips to rounded square; Android uses adaptive)
-    ctx.fillStyle = BRAND_RED;
-    ctx.fillRect(0, 0, size, size);
-  } else {
-    // Transparent for adaptive foreground
-    ctx.clearRect(0, 0, size, size);
-  }
-
-  const cx = size / 2;
-  const dSize = size * 0.56;
-
-  if (withBLR) {
-    // Move D up slightly to make room for BLR text below
-    drawD(ctx, cx, cx - size * 0.06, dSize);
-    drawBLR(ctx, cx, cx + size * 0.32, Math.max(size * 0.075, 18));
-  } else {
-    drawD(ctx, cx, cx, dSize);
-  }
 
   return canvas.toBuffer('image/png');
 }
 
 // ── Write files ───────────────────────────────────────────────────────────────
 const files = [
-  { name: 'icon.png',          size: 1024, bg: true,  blr: true  },
-  { name: 'adaptive-icon.png', size: 1024, bg: false, blr: true  },
-  { name: 'splash-icon.png',   size: 512,  bg: true,  blr: false },
+  { name: 'icon.png',          size: 1024, bg: true  },
+  { name: 'adaptive-icon.png', size: 1024, bg: false },
+  { name: 'splash-icon.png',   size: 512,  bg: true  },
 ];
 
-files.forEach(({ name, size, bg, blr }) => {
-  const buf  = generate(size, bg, blr);
+files.forEach(({ name, size, bg }) => {
+  const buf  = generate(size, bg);
   const dest = path.join(ASSETS, name);
   fs.writeFileSync(dest, buf);
   console.log(`✓ ${dest}  (${size}×${size})`);
 });
 
-console.log('\nDone! Restart Expo with: npx expo start --clear');
+console.log('\nDone! Run: npx expo start --clear');

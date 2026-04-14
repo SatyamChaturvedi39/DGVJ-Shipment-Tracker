@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PHASE_CONFIG, PHASE_ORDER } from '@/constants/phases';
-import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase } from '@/services/api';
+import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase, updateShipment } from '@/services/api';
 import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 import type { ShipmentDetail, StatusEvent, User, ShipmentPhase } from '@/types';
 
@@ -260,9 +260,12 @@ export default function ShipmentDetailScreen() {
   const [customerMap, setCustomerMap]   = useState<Record<string, string>>({});
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
-  const [settingPhase, setSettingPhase] = useState(false);
-  const [addStatusVisible, setAddVis]   = useState(false);
-  const [addingStatus, setAddingStatus] = useState(false);
+  const [settingPhase, setSettingPhase]       = useState(false);
+  const [addStatusVisible, setAddVis]         = useState(false);
+  const [addingStatus, setAddingStatus]       = useState(false);
+  const [editingTrackId, setEditingTrackId]   = useState(false);
+  const [trackIdDraft, setTrackIdDraft]       = useState('');
+  const [savingTrackId, setSavingTrackId]     = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -285,6 +288,21 @@ export default function ShipmentDetailScreen() {
   const employeeName = (empId: string | null): string => {
     if (!empId) return '—';
     return employees.find(e => e.id === empId)?.name ?? empId;
+  };
+
+  const handleSaveTrackingId = async () => {
+    const trimmed = trackIdDraft.trim().toUpperCase();
+    if (!trimmed) { Alert.alert('Error', 'Tracking ID cannot be empty.'); return; }
+    setSavingTrackId(true);
+    try {
+      await updateShipment(id!, { tracking_id: trimmed });
+      await load();
+      setEditingTrackId(false);
+    } catch {
+      Alert.alert('Error', 'Failed to update tracking ID. Try again.');
+    } finally {
+      setSavingTrackId(false);
+    }
   };
 
   const handleSetPhase = (targetPhase: ShipmentPhase) => {
@@ -363,7 +381,43 @@ export default function ShipmentDetailScreen() {
 
         {/* ── Dark header card ──────────────────────────────────── */}
         <View style={styles.headerCard}>
-          <Text style={styles.trackingId}>{shipment.tracking_id}</Text>
+          {editingTrackId ? (
+            <View style={styles.trackIdEditRow}>
+              <TextInput
+                style={styles.trackIdInput}
+                value={trackIdDraft}
+                onChangeText={setTrackIdDraft}
+                autoCapitalize="characters"
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSaveTrackingId}
+              />
+              <TouchableOpacity
+                style={[styles.trackIdSaveBtn, savingTrackId && { opacity: 0.6 }]}
+                onPress={handleSaveTrackingId}
+                disabled={savingTrackId}
+              >
+                {savingTrackId
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : <Text style={styles.trackIdSaveBtnText}>Save</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.trackIdCancelBtn}
+                onPress={() => setEditingTrackId(false)}
+              >
+                <Text style={styles.trackIdCancelText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => { setTrackIdDraft(shipment.tracking_id); setEditingTrackId(true); }}
+              activeOpacity={0.75}
+              style={styles.trackIdTapArea}
+            >
+              <Text style={styles.trackingId}>{shipment.tracking_id}</Text>
+              <Text style={styles.trackIdEditHint}>✏  Tap to edit</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.headerMeta}>
             {(() => {
               const cfg = PHASE_CONFIG[shipment.current_phase] ?? PHASE_CONFIG.pickup;
@@ -510,7 +564,15 @@ const styles = StyleSheet.create({
 
   // Header card
   headerCard:     { backgroundColor: Colors.darkHeader, borderRadius: 16, padding: 20, marginBottom: 12 },
-  trackingId:     { fontSize: 22, fontWeight: '800', color: '#FFF', letterSpacing: 1, marginBottom: 14 },
+  trackingId:     { fontSize: 22, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+  trackIdTapArea: { marginBottom: 14 },
+  trackIdEditHint:{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontWeight: '500' },
+  trackIdEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  trackIdInput:   { flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 17, fontWeight: '700', color: '#FFF', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  trackIdSaveBtn: { backgroundColor: Colors.success, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  trackIdSaveBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  trackIdCancelBtn:   { padding: 8 },
+  trackIdCancelText:  { color: 'rgba(255,255,255,0.6)', fontSize: 16, fontWeight: '700' },
   headerMeta:     { flexDirection: 'row', gap: 10, alignItems: 'center' },
   phaseBadge:     { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
   phaseBadgeText: { fontSize: 13, fontWeight: '700' },

@@ -223,6 +223,8 @@ export default function JobDetailScreen() {
   const locationSub = useRef<Location.LocationSubscription | null>(null);
 
   const [transitioning, setTransitioning] = useState(false);
+  // Prevents WS phase_change alert from firing for the employee's own transitions
+  const skipNextPhaseAlert = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -258,6 +260,12 @@ export default function JobDetailScreen() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'phase_change') {
+            // If the employee triggered this transition themselves, skip the alert
+            if (skipNextPhaseAlert.current) {
+              skipNextPhaseAlert.current = false;
+              load();
+              return;
+            }
             stopTracking();
             load();
             Alert.alert(
@@ -290,6 +298,16 @@ export default function JobDetailScreen() {
     (isDeliveryEmployee && phase === 'out_for_delivery')
   );
 
+  // ── GPS auto-start when entering a GPS-active phase ──────────────────────────
+  const prevShowGpsRef = useRef(false);
+  useEffect(() => {
+    if (showGps && !prevShowGpsRef.current && !tracking) {
+      startTracking();
+    }
+    prevShowGpsRef.current = showGps;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showGps]);
+
   // ── GPS handlers ─────────────────────────────────────────────────────────────
 
   const startTracking = async () => {
@@ -321,23 +339,35 @@ export default function JobDetailScreen() {
 
   // ── Phase transition helpers ──────────────────────────────────────────────────
 
+  // GPS phases: stay on screen and auto-start GPS after transition
+  const GPS_CONTINUATION_PHASES: ShipmentPhase[] = ['transit', 'out_for_delivery'];
+
   const confirmTransition = (
     title: string,
     message: string,
     nextPhase: ShipmentPhase,
     successMsg: string,
   ) => {
+    const continueGps = GPS_CONTINUATION_PHASES.includes(nextPhase);
     Alert.alert(title, message, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm',
         onPress: async () => {
           setTransitioning(true);
-          stopTracking();
+          // Mark as own transition so WS handler doesn't show the popup
+          skipNextPhaseAlert.current = true;
+          if (!continueGps) stopTracking();
           try {
             await transitionPhase(id!, nextPhase);
-            Alert.alert('Done', successMsg, [{ text: 'OK', onPress: () => router.back() }]);
+            if (continueGps) {
+              // Stay on screen and reload so GPS auto-start useEffect fires
+              await load();
+            } else {
+              Alert.alert('Done', successMsg, [{ text: 'OK', onPress: () => router.back() }]);
+            }
           } catch (e: unknown) {
+            skipNextPhaseAlert.current = false;
             const rawDetail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
             const msg = Array.isArray(rawDetail)
               ? (rawDetail as { msg?: string }[]).map(d => d?.msg ?? String(d)).join(', ')
@@ -519,6 +549,7 @@ export default function JobDetailScreen() {
                     style: 'destructive',
                     onPress: async () => {
                       setTransitioning(true);
+                      skipNextPhaseAlert.current = true;
                       stopTracking();
                       try {
                         await transitionPhase(id!, 'pickup');

@@ -502,6 +502,8 @@ function LiveMapSection({
     longitudeDelta: 0.05,
   };
 
+  const hasRealApiKey = Config.GOOGLE_MAPS_API_KEY && Config.GOOGLE_MAPS_API_KEY !== 'PLACEHOLDER';
+
   return (
     <View>
       <MapView
@@ -533,6 +535,13 @@ function LiveMapSection({
           />
         )}
       </MapView>
+      {!hasRealApiKey && (
+        <View style={styles.mapApiKeyNotice}>
+          <Text style={styles.mapApiKeyNoticeText}>
+            📍 Driver location shared · Route & ETA requires Google Maps API key
+          </Text>
+        </View>
+      )}
       <DriverStatusCard location={location} etaText={etaText} />
     </View>
   );
@@ -746,18 +755,42 @@ export default function ShipmentTrackingScreen() {
         </Section>
       )}
 
-      {/* ── Section 4: Full status timeline ──────────────────────────── */}
-      {shipment.status_events?.length > 0 && (
-        <Section title="STATUS TIMELINE">
-          {shipment.status_events.map((ev, idx) => (
-            <TimelineItem
-              key={ev.id}
-              event={ev}
-              isLast={idx === shipment.status_events.length - 1}
-            />
-          ))}
-        </Section>
-      )}
+      {/* ── Section 4: Status timeline (system events only) ─────────── */}
+      {(() => {
+        const systemEvents = shipment.status_events?.filter(e => !e.sort_order || e.sort_order <= 6) ?? [];
+        const adminNotes   = shipment.status_events?.filter(e => e.sort_order != null && e.sort_order > 6) ?? [];
+        return (
+          <>
+            {systemEvents.length > 0 && (
+              <Section title="STATUS TIMELINE">
+                {systemEvents.map((ev, idx) => (
+                  <TimelineItem
+                    key={ev.id}
+                    event={ev}
+                    isLast={idx === systemEvents.length - 1}
+                  />
+                ))}
+              </Section>
+            )}
+
+            {adminNotes.length > 0 && (
+              <View style={styles.adminNotesCard}>
+                <View style={styles.adminNotesHeader}>
+                  <Text style={styles.adminNotesIcon}>📋</Text>
+                  <Text style={styles.adminNotesTitle}>UPDATES FROM DIGVIJAY EXPRESS</Text>
+                </View>
+                {adminNotes.map((ev, idx) => (
+                  <View key={ev.id} style={[styles.adminNoteRow, idx < adminNotes.length - 1 && styles.adminNoteRowBorder]}>
+                    <Text style={styles.adminNoteLabel}>{ev.label}</Text>
+                    {ev.description ? <Text style={styles.adminNoteDesc}>{ev.description}</Text> : null}
+                    <Text style={styles.adminNoteTime}>{formatEventDate(ev.timestamp)}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── Section 5: Expandable shipment details ────────────────────── */}
       <ExpandableDetails shipment={shipment} />
@@ -1004,6 +1037,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  mapApiKeyNotice: {
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#FFE082',
+  },
+  mapApiKeyNoticeText: {
+    fontSize: 11,
+    color: '#F57F17',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
 
   // Transit card
   transitCard: {
@@ -1037,5 +1083,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     fontWeight: '500',
+  },
+
+  // Admin notes (side notes from Digvijay Express)
+  adminNotesCard: {
+    backgroundColor: '#FFFDE7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  adminNotesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFF8E1',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE082',
+  },
+  adminNotesIcon: { fontSize: 14 },
+  adminNotesTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#F57F17',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  adminNoteRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  adminNoteRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE082',
+  },
+  adminNoteLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  adminNoteDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  adminNoteTime: {
+    fontSize: 11,
+    color: Colors.textMuted,
   },
 });

@@ -104,7 +104,7 @@ export async function createShipment(payload: CreateShipmentPayload): Promise<Sh
 
 export async function updateShipment(
   id: string,
-  payload: Partial<CreateShipmentPayload>
+  payload: Partial<CreateShipmentPayload> & { tracking_id?: string }
 ): Promise<Shipment> {
   const { data } = await api.put(`/shipments/${id}`, payload);
   return data;
