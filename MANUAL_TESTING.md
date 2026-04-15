@@ -48,6 +48,25 @@ Pre-register these users in Supabase (via the Admin Team screen in a dev build, 
 1. Open `https://<your-render-url>/docs`
 2. POST `/auth/set-pin` with header `Authorization: Bearer dev-mock-token` and body `{"new_pin": "1234"}`
 
+### How to switch between accounts during testing
+
+You will need to switch between Admin, Employee, and Customer accounts frequently. Here is the exact flow each time:
+
+**To sign out (from any role):**
+- **Admin:** Dashboard / New Shipment / Archive tabs → tap the **Sign Out** button in the top-right header. OR go to the Team tab → tap **Sign Out** in the custom header.
+- **Employee:** My Jobs tab → tap **Sign Out** in the top-right header.
+- **Customer:** Profile tab (rightmost tab) → scroll to bottom → tap **Sign Out**.
+
+All sign-outs show a confirmation alert — tap "Sign Out" to confirm. App returns to the login screen.
+
+**To sign in as a different account:**
+1. Enter the 10-digit phone number for that account (without the +91 prefix — the app adds it)
+2. Tap **Continue →**
+3. Enter the 4-digit PIN for that account
+4. App navigates to the correct role dashboard automatically
+
+**Tip for Part 5 (end-to-end flow):** You will switch between Admin → Employee (Ravi) → Customer → Employee (Ravi) → Admin → Employee (Suresh) → Customer → Employee (Suresh). Keep the phone numbers and PINs for all 4 accounts written down before you start.
+
 ---
 
 ## Part 1 — Authentication
@@ -72,22 +91,29 @@ Pre-register these users in Supabase (via the Admin Team screen in a dev build, 
 | 1 | Enter correct phone, wrong PIN | "Incorrect PIN. Please try again." shown on PIN screen |
 | 2 | PIN boxes clear | User can re-enter — stays on PIN screen, no redirect |
 
-### 1C. Phone not registered
+### 1C. First-time login (no PIN set yet)
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Admin creates a new user but doesn't set their PIN | Or create user via Team screen — PIN is always set there, so for this test: manually clear `pin_hash` in Supabase for a test user |
+| 2 | Enter that user's phone → "Continue →" | App navigates directly to **Setup PIN** screen (not the verify/enter-PIN screen) |
+| 3 | Set a 4-digit PIN | Confirm PIN → account activated → dashboard loads |
+
+### 1D. Phone not registered
 
 | Step | Action | Expected |
 |------|--------|----------|
 | 1 | Enter a phone not in Supabase | Tap "Continue →" |
-| 2 | PIN screen appears | Enter any 4 digits |
-| 3 | Error | "Phone not found" or similar error — stays on PIN screen |
+| 2 | Error appears on login screen | "Your number is not registered. Contact Digvijay Express." — no navigation |
 
-### 1D. Deactivated account
+### 1E. Deactivated account
 
 | Step | Action | Expected |
 |------|--------|----------|
 | 1 | Deactivate an employee via Admin Team screen | |
 | 2 | That employee tries to log in with correct PIN | Error: "Access denied. Contact Digvijay Express to get access." |
 
-### 1E. Session persistence
+### 1F. Session persistence
 
 | Step | Action | Expected |
 |------|--------|----------|
@@ -138,6 +164,9 @@ Log in as the admin phone number.
 | 5 | Add status update | "+ Add Status Update" → bottom sheet → fill fields → "Add Update" → event appears |
 | 6 | Advance phase | "Mark as In Transit →" → confirm alert → badge updates |
 | 7 | Completed state | Green banner with delivery date, no advance button |
+| 8 | **Edit Tracking ID** | Tap the tracking ID in the header card → inline edit row with TextInput appears |
+| 9 | Save tracking ID | Type new ID → tap "Save" → ID updates in header, edit row closes |
+| 10 | Cancel edit | Tap "Cancel" → original ID restored, edit row closes |
 
 ### 2D. Archive
 
@@ -193,9 +222,10 @@ Log in as an employee phone number.
 | 4 | YOUR NEXT ACTION | Card at top with action button |
 | 5 | GPS section | "START TRACKING" button visible (pickup phase, pickup driver) |
 | 6 | Start tracking | Pulsing green dot + coordinates update |
-| 7 | Mark as Picked Up | Tap "Mark as Picked Up 📦" → confirm → phase → "In Transit" → GPS continues |
-| 8 | Hand to carrier | Tap "Mark as Handed to Carrier →" → confirm → GPS stops → phase → "handed_to_carrier" |
-| 9 | Shipment leaves Active tab | After phase → handed_to_carrier, this driver's Active tab is empty for this shipment |
+| 7 | **Mark as Picked Up** | Tap "Mark as Picked Up 📦" → confirm → screen stays open → phase badge updates to "In Transit" → GPS auto-starts (no manual tap needed) |
+| 8 | **No "Phase Updated by Admin" popup** | Immediately after step 7, NO alert popup should appear. Popup only comes from admin-initiated changes. |
+| 9 | Hand to carrier | Tap "Mark as Handed to Carrier →" → confirm → GPS stops → navigates back to My Jobs |
+| 10 | Shipment leaves Active tab | After phase → handed_to_carrier, this driver's Active tab is empty for this shipment |
 
 ### 3C. Job Detail — Delivery Driver Flow
 
@@ -220,9 +250,12 @@ Log in as a customer phone number.
 
 | Step | Action | Expected |
 |------|--------|----------|
-| 1 | List | Only shipments where this customer was granted access by admin |
-| 2 | ETA | "1 May 2026" format |
-| 3 | Search | Filters by tracking ID or city |
+| 1 | Active tab (default) | Only in-progress shipments (not completed) for this customer |
+| 2 | History tab | Only completed shipments for this customer |
+| 3 | Tab counts | Numbers next to "Active" / "History" show correct counts |
+| 4 | Empty states | "No active shipments" or "No completed shipments" (tab-specific, not generic) |
+| 5 | ETA | "1 May 2026" format |
+| 6 | Search | Filters within the selected tab by tracking ID or city |
 
 ### 4B. Shipment Tracking — Phase by Phase
 
@@ -259,14 +292,23 @@ Log in as a customer phone number.
 | 12 | ETA card replaced | Green "Shipment Delivered" card with full delivery date |
 | 13 | No map | Live tracking section gone |
 
+**Admin notes vs Status Timeline:**
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 14 | Admin adds a status update to a shipment | |
+| 15 | Customer opens that shipment | Admin-added updates appear in a **separate amber card** "UPDATES FROM DIGVIJAY EXPRESS" — NOT in the main status timeline |
+| 16 | Main "Status Timeline" | Contains only the 5 system events (Picked Up, Heading to Carrier, etc.) — no admin notes mixed in |
+| 17 | If no admin notes | Amber card does not appear at all |
+
 **Status Timeline (all phases):**
 
 | Step | Action | Expected |
 |------|--------|----------|
-| 14 | Timeline order | Picked Up → Heading to Carrier → Handed to Carrier → Out for Delivery → Delivered |
-| 15 | **KEY CHECK** | Completed events: real date like "3 Apr 2026, 9:17 pm" — **NOT "Invalid Date"** |
-| 16 | Current event | Red pulsing dot + "Pending" text |
-| 17 | Future events | Gray outlined dot + "Pending" |
+| 18 | Timeline order | Picked Up → Heading to Carrier → Handed to Carrier → Out for Delivery → Delivered |
+| 19 | **KEY CHECK** | Completed events: real date like "3 Apr 2026, 9:17 pm" — **NOT "Invalid Date"** |
+| 20 | Current event | Red pulsing dot + "Pending" text |
+| 21 | Future events | Gray outlined dot + "Pending" |
 
 **ETA overdue:**
 
@@ -362,13 +404,19 @@ Run this once to confirm the entire shipment lifecycle works in production.
 After any code deploy, run these checks in under 5 minutes:
 
 - [ ] Login screen loads — "D" emblem, DIGVIJAY wordmark, no dev buttons
-- [ ] Enter phone → "Continue →" → PIN screen appears
+- [ ] Phone not in DB → error on login screen (not navigated away)
+- [ ] Phone with no PIN → goes to **Setup PIN** screen (not Enter PIN)
+- [ ] Phone with PIN → goes to Enter PIN screen
 - [ ] Correct PIN → correct role dashboard loads
 - [ ] Wrong PIN → error shown on PIN screen, stays on PIN screen
 - [ ] App killed and reopened → session restored, no login required
 - [ ] Admin: tap any shipment → timeline has no "Invalid Date"
+- [ ] Admin: tap tracking ID in detail → inline edit row appears → save updates it
 - [ ] Admin: Archive → filter chips + count visible together (count not cut off)
 - [ ] Admin: Team → Add user with 4-digit PIN → user appears
+- [ ] Employee: Mark as Picked Up → stays on screen, GPS auto-starts, no "Phase Updated" popup
+- [ ] Customer: My Shipments → Active and History tabs both work
+- [ ] Customer: tap any shipment → admin notes in amber card, NOT in main timeline
 - [ ] Customer: tap any shipment → timeline has no "Invalid Date"
 - [ ] Customer: Profile → Change PIN row visible and tappable
 - [ ] ETA shows as "1 May 2026" (not "2026-05-01")

@@ -18,25 +18,9 @@ import { getIdToken } from '@/services/auth';
 import type { ShipmentDetail, ShipmentPhase, StatusEvent, LocationUpdate } from '@/types';
 import { formatEventDate, formatETA, formatFullDate, isETAPast } from '@/utils/formatDate';
 
-// ─── Google Maps Directions helpers ──────────────────────────────────────────
-
-/** Decode a Google Maps encoded polyline into lat/lng coordinates. */
-function decodePolyline(encoded: string): { latitude: number; longitude: number }[] {
-  const points: { latitude: number; longitude: number }[] = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-  while (index < encoded.length) {
-    let shift = 0, result = 0, b: number;
-    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lat += (result & 1) ? ~(result >> 1) : result >> 1;
-    shift = 0; result = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lng += (result & 1) ? ~(result >> 1) : result >> 1;
-    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
-  }
-  return points;
-}
+// ─── OpenRouteService Directions helpers ─────────────────────────────────────
+// Free tier: 2,000 requests/day — more than enough for this app.
+// Sign up at openrouteservice.org, set EXPO_PUBLIC_ORS_API_KEY in .env.
 
 interface DirectionsResult {
   routePoints: { latitude: number; longitude: number }[];
@@ -44,27 +28,64 @@ interface DirectionsResult {
   destCoord: { latitude: number; longitude: number } | null;
 }
 
+/** Geocode a place name to lat/lng using ORS Pelias geocoding (India-bounded). */
+async function geocodePlace(
+  query: string,
+  apiKey: string,
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url =
+      `https://api.openrouteservice.org/geocode/search` +
+      `?api_key=${apiKey}&text=${encodeURIComponent(query)}&boundary.country=IND&size=1`;
+    const res  = await fetch(url);
+    const json = await res.json();
+    const feat = json.features?.[0];
+    if (!feat) return null;
+    const [lng, lat] = feat.geometry.coordinates as [number, number];
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
+/** Get driving route from origin coords to a destination name via ORS. */
 async function getDirections(
   origin: { lat: number; lng: number },
   destination: string,
   apiKey: string,
 ): Promise<DirectionsResult | null> {
-  if (!apiKey || apiKey === 'PLACEHOLDER') return null;
+  if (!apiKey) return null;
   try {
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${encodeURIComponent(destination)}&mode=driving&key=${apiKey}`;
-    const res = await fetch(url);
+    const dest = await geocodePlace(destination, apiKey);
+    if (!dest) return null;
+
+    const res  = await fetch(
+      'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
+      {
+        method: 'POST',
+        headers: { Authorization: apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coordinates: [
+            [origin.lng, origin.lat],
+            [dest.lng,   dest.lat],
+          ],
+        }),
+      },
+    );
     const json = await res.json();
-    if (json.status !== 'OK' || !json.routes?.length) return null;
-    const route = json.routes[0];
-    const leg = route.legs?.[0];
-    const encoded: string = route.overview_polyline?.points ?? '';
-    const routePoints = encoded ? decodePolyline(encoded) : [];
-    const durationText: string = leg?.duration?.text ?? '';
-    const endLocation = leg?.end_location;
-    const destCoord = endLocation
-      ? { latitude: endLocation.lat as number, longitude: endLocation.lng as number }
-      : null;
-    return { routePoints, durationText, destCoord };
+    const feat = json.features?.[0];
+    if (!feat) return null;
+
+    // ORS GeoJSON geometry coords are [lng, lat]
+    const routePoints = (feat.geometry.coordinates as [number, number][]).map(
+      ([lng, lat]) => ({ latitude: lat, longitude: lng }),
+    );
+    const durationSec: number = feat.properties?.summary?.duration ?? 0;
+    const durationText = durationSec >= 3600
+      ? `${Math.round(durationSec / 3600)} hr`
+      : `${Math.round(durationSec / 60)} min`;
+
+    return { routePoints, durationText, destCoord: { latitude: dest.lat, longitude: dest.lng } };
   } catch {
     return null;
   }
@@ -384,8 +405,8 @@ function LiveMapSection({
   const fetchDirections = useCallback(async (loc: LocationUpdate) => {
     const destStr = getDestinationString();
     if (!destStr) return;
-    const apiKey = Config.GOOGLE_MAPS_API_KEY;
-    if (!apiKey || apiKey === 'PLACEHOLDER') return;
+    const apiKey = Config.ORS_API_KEY;
+    if (!apiKey) return;
     // Skip if driver hasn't moved more than ~100m since last call
     const last = lastDirectionsCoord.current;
     if (last) {
@@ -502,8 +523,6 @@ function LiveMapSection({
     longitudeDelta: 0.05,
   };
 
-  const hasRealApiKey = Config.GOOGLE_MAPS_API_KEY && Config.GOOGLE_MAPS_API_KEY !== 'PLACEHOLDER';
-
   return (
     <View>
       <MapView
@@ -535,13 +554,6 @@ function LiveMapSection({
           />
         )}
       </MapView>
-      {!hasRealApiKey && (
-        <View style={styles.mapApiKeyNotice}>
-          <Text style={styles.mapApiKeyNoticeText}>
-            📍 Driver location shared · Route & ETA requires Google Maps API key
-          </Text>
-        </View>
-      )}
       <DriverStatusCard location={location} etaText={etaText} />
     </View>
   );
@@ -1037,20 +1049,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  mapApiKeyNotice: {
-    backgroundColor: '#FFF8E1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#FFE082',
-  },
-  mapApiKeyNoticeText: {
-    fontSize: 11,
-    color: '#F57F17',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-
   // Transit card
   transitCard: {
     alignItems: 'center',

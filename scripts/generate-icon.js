@@ -12,21 +12,26 @@
  */
 
 const { createCanvas } = require('@napi-rs/canvas');
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
 
-const ASSETS = path.join(__dirname, '..', 'assets');
-
+const ASSETS    = path.join(__dirname, '..', 'assets');
 const BRAND_RED = '#C62828';
 const WHITE     = '#FFFFFF';
 
-// ── Draw a single icon ────────────────────────────────────────────────────────
+// ── Draw the icon ─────────────────────────────────────────────────────────────
+// Strategy: use canvas text rendering for the "D" lettermark — fonts always
+// look sharper than hand-coded bezier curves at every icon size.
+//
+// withBackground = true  → red fill behind the D  (icon.png, splash-icon.png)
+// withBackground = false → transparent bg          (adaptive-icon.png)
 function generate(size, withBackground) {
   const canvas = createCanvas(size, size);
   const ctx    = canvas.getContext('2d');
   const cx     = size / 2;
   const cy     = size / 2;
 
+  // ── Background ───────────────────────────────────────────────────────────
   if (withBackground) {
     ctx.fillStyle = BRAND_RED;
     ctx.fillRect(0, 0, size, size);
@@ -34,80 +39,29 @@ function generate(size, withBackground) {
     ctx.clearRect(0, 0, size, size);
   }
 
-  // ── "D" lettermark — drawn as a custom path for crispness ──────────────────
-  // Strategy: large rounded D using bezier curves.
-  // The D is ~68% of canvas height, horizontally centred with slight left offset.
+  // ── "D" lettermark via text rendering ───────────────────────────────────
+  // Try bold fonts in order; @napi-rs/canvas uses system fonts on the host OS.
+  // Arial Black / Impact are always present on Windows & macOS.
+  const fontSize = Math.round(size * 0.74);
 
-  const letterH = size * 0.68;          // total letter height
-  const stemW   = size * 0.13;          // stem (vertical bar) width
-  const letterTop    = cy - letterH / 2;
-  const letterBottom = cy + letterH / 2;
-  const stemLeft     = cx - size * 0.22;
-  const stemRight    = stemLeft + stemW;
+  // Draw with a few candidate font faces — the first one available will be used.
+  // We intentionally overdraw the same position; last successful render wins.
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle    = WHITE;
 
-  // Outer bounding right edge of the bow
-  const bowRight = cx + size * 0.22;
-  const bowCx    = stemRight + (bowRight - stemRight) / 2 + size * 0.03;
-  const bowRY    = letterH / 2;        // vertical radius
-  const bowRX    = bowRight - bowCx;   // horizontal radius
+  // Primary: Arial Black (Windows/macOS, very heavy)
+  ctx.font = `${fontSize}px "Arial Black"`;
+  let m = ctx.measureText('D');
+  // Fallback: if glyph is suspiciously narrow, try Impact
+  if (m.width < size * 0.3) {
+    ctx.font = `${fontSize}px Impact`;
+  }
+  // Last resort: generic bold serif
+  ctx.font = `900 ${fontSize}px Arial, Impact, sans-serif`;
 
-  // Corner rounding for stem top/bottom
-  const cornerR = size * 0.04;
-
-  ctx.beginPath();
-  // Top-left corner
-  ctx.moveTo(stemLeft + cornerR, letterTop);
-  // Top edge → top-right of bow
-  ctx.lineTo(bowCx - size * 0.10, letterTop);
-  // Top-right arc of bow
-  ctx.bezierCurveTo(
-    bowRight, letterTop,
-    bowRight + size * 0.10, cy - bowRY * 0.1,
-    bowRight + size * 0.10, cy
-  );
-  // Bottom-right arc of bow
-  ctx.bezierCurveTo(
-    bowRight + size * 0.10, cy + bowRY * 0.1,
-    bowRight, letterBottom,
-    bowCx - size * 0.10, letterBottom
-  );
-  // Bottom edge back to stem
-  ctx.lineTo(stemLeft + cornerR, letterBottom);
-  // Bottom-left corner
-  ctx.arcTo(stemLeft, letterBottom, stemLeft, letterBottom - cornerR, cornerR);
-  ctx.lineTo(stemLeft, letterTop + cornerR);
-  // Top-left corner
-  ctx.arcTo(stemLeft, letterTop, stemLeft + cornerR, letterTop, cornerR);
-  ctx.closePath();
-  ctx.fillStyle = WHITE;
-  ctx.fill();
-
-  // Inner cutout (counter of the D)
-  const innerPad   = size * 0.055;
-  const innerTop   = letterTop + innerPad;
-  const innerBot   = letterBottom - innerPad;
-  const innerLeft  = stemRight + innerPad * 0.5;
-  const innerCx    = bowCx + size * 0.015;
-  const innerRY    = (innerBot - innerTop) / 2;
-  const innerBowR  = bowRight - innerPad * 0.5;
-
-  ctx.beginPath();
-  ctx.moveTo(innerLeft, innerTop);
-  ctx.lineTo(innerCx - size * 0.06, innerTop);
-  ctx.bezierCurveTo(
-    innerBowR, innerTop,
-    innerBowR + size * 0.06, innerTop + innerRY * 0.1,
-    innerBowR + size * 0.06, innerTop + innerRY
-  );
-  ctx.bezierCurveTo(
-    innerBowR + size * 0.06, innerBot - innerRY * 0.1,
-    innerBowR, innerBot,
-    innerCx - size * 0.06, innerBot
-  );
-  ctx.lineTo(innerLeft, innerBot);
-  ctx.closePath();
-  ctx.fillStyle = withBackground ? BRAND_RED : 'rgba(0,0,0,0)';
-  ctx.fill();
+  // Vertical adjustment: most fonts sit slightly above true centre at baseline=middle
+  ctx.fillText('D', cx, cy + size * 0.025);
 
   return canvas.toBuffer('image/png');
 }
