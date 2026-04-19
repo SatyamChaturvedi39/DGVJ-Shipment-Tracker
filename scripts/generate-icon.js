@@ -42,7 +42,7 @@ function generate(size, withBackground) {
   // ── "D" lettermark via text rendering ───────────────────────────────────
   // Try bold fonts in order; @napi-rs/canvas uses system fonts on the host OS.
   // Arial Black / Impact are always present on Windows & macOS.
-  const fontSize = Math.round(size * 0.74);
+  const fontSize = Math.round(size * 0.58);
 
   // Draw with a few candidate font faces — the first one available will be used.
   // We intentionally overdraw the same position; last successful render wins.

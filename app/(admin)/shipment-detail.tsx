@@ -486,23 +486,44 @@ export default function ShipmentDetailScreen() {
           </Section>
         )}
 
-        {/* ── Status timeline ──────────────────────────────────── */}
-        {shipment.status_events?.length > 0 && (
-          <Section title="Status Timeline">
-            {shipment.status_events.map((ev, idx) => {
-              const firstPending = shipment.status_events.findIndex(e => !e.is_completed);
-              const isCurrent    = !ev.is_completed && idx === firstPending;
-              return (
-                <TimelineItem
-                  key={ev.id}
-                  event={ev}
-                  isLast={idx === shipment.status_events.length - 1}
-                  isCurrent={isCurrent}
-                />
-              );
-            })}
-          </Section>
-        )}
+        {/* ── Status timeline (system events, sort_order 1–6) ──── */}
+        {(() => {
+          const systemEvents = shipment.status_events?.filter(e => !e.sort_order || e.sort_order <= 6) ?? [];
+          const adminNotes   = shipment.status_events?.filter(e => e.sort_order != null && e.sort_order > 6) ?? [];
+          return (
+            <>
+              {systemEvents.length > 0 && (
+                <Section title="Status Timeline">
+                  {systemEvents.map((ev, idx) => {
+                    const firstPending = systemEvents.findIndex(e => !e.is_completed);
+                    const isCurrent    = !ev.is_completed && idx === firstPending;
+                    return (
+                      <TimelineItem
+                        key={ev.id}
+                        event={ev}
+                        isLast={idx === systemEvents.length - 1}
+                        isCurrent={isCurrent}
+                      />
+                    );
+                  })}
+                </Section>
+              )}
+              {adminNotes.length > 0 && (
+                <Section title="Admin Updates">
+                  <View style={styles.adminNotesCard}>
+                    {adminNotes.map((note, idx) => (
+                      <View key={note.id} style={[styles.adminNoteRow, idx > 0 && styles.adminNoteRowBorder]}>
+                        <Text style={styles.adminNoteLabel}>{note.label}</Text>
+                        {note.description ? <Text style={styles.adminNoteDesc}>{note.description}</Text> : null}
+                        <Text style={styles.adminNoteTime}>{formatEventDate(note.timestamp)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </Section>
+              )}
+            </>
+          );
+        })()}
 
         {/* ── Employees ────────────────────────────────────────── */}
         <Section title="Assigned Employees">
@@ -609,6 +630,14 @@ const styles = StyleSheet.create({
   customerRow:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 10 },
   customerDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   customerName: { fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
+
+  // Admin notes card
+  adminNotesCard:     { backgroundColor: '#FFFDE7', borderRadius: 10, borderWidth: 1, borderColor: '#FFE082', overflow: 'hidden' },
+  adminNoteRow:       { paddingHorizontal: 14, paddingVertical: 10 },
+  adminNoteRowBorder: { borderTopWidth: 1, borderTopColor: '#FFE082' },
+  adminNoteLabel:     { fontSize: 14, fontWeight: '700', color: '#5D4037', marginBottom: 2 },
+  adminNoteDesc:      { fontSize: 13, color: '#795548', marginBottom: 4 },
+  adminNoteTime:      { fontSize: 11, color: '#A1887F' },
 
   // Completed banner
   completedBanner:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 14, padding: 16, gap: 14, marginBottom: 16, borderWidth: 1, borderColor: '#A5D6A7' },

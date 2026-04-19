@@ -22,12 +22,15 @@ PHASE_COMPLETE_COUNT = {
 
 def sync_events_to_phase(shipment_id: str, new_phase: str) -> None:
     """Mark initial status events (sort_order 1–6) complete/incomplete
-    based on the new phase. Handles both forward and backward transitions."""
+    based on the new phase. Handles both forward and backward transitions.
+    Also sets created_at to now when newly completing an event so customers
+    see an accurate timestamp instead of the original shipment creation time."""
     complete_count = PHASE_COMPLETE_COUNT.get(new_phase, 0)
+    now = datetime.now(timezone.utc).isoformat()
 
     events = (
         supabase.table("status_events")
-        .select("id")
+        .select("id,is_completed")
         .eq("shipment_id", shipment_id)
         .lte("sort_order", 6)
         .order("sort_order")
@@ -37,13 +40,14 @@ def sync_events_to_phase(shipment_id: str, new_phase: str) -> None:
     if not events.data:
         return
 
-    to_complete = [e["id"] for e in events.data[:complete_count]]
-    to_incomplete = [e["id"] for e in events.data[complete_count:]]
-
-    if to_complete:
-        supabase.table("status_events").update({"is_completed": True}).in_("id", to_complete).execute()
-    if to_incomplete:
-        supabase.table("status_events").update({"is_completed": False}).in_("id", to_incomplete).execute()
+    for i, event in enumerate(events.data):
+        should_complete = i < complete_count
+        was_completed = event.get("is_completed", False)
+        update: dict = {"is_completed": should_complete}
+        if should_complete and not was_completed:
+            # Newly completed — stamp with current time so timeline shows real date
+            update["created_at"] = now
+        supabase.table("status_events").update(update).eq("id", event["id"]).execute()
 
 
 @router.put("/shipments/{shipment_id}/phase")
@@ -64,10 +68,14 @@ async def transition_phase(
     if user["role"] == "employee":
         uid = user["id"]
         current_phase = shipment.get("current_phase")
-        is_pickup = shipment.get("pickup_employee_id") == uid
-        is_delivery = shipment.get("delivery_employee_id") == uid
+        pickup_id = shipment.get("pickup_employee_id")
+        delivery_id = shipment.get("delivery_employee_id")
+        is_pickup = pickup_id == uid
+        is_delivery = delivery_id == uid
 
         if not is_pickup and not is_delivery:
+            if not pickup_id and not delivery_id:
+                raise HTTPException(status_code=403, detail="No drivers assigned to this shipment. Ask admin to assign drivers first.")
             raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
 
         if body.phase == "pickup":
@@ -120,6 +128,7 @@ async def add_status_event(
         "label": body.label,
         "description": body.description,
         "is_completed": True,
+        "sort_order": 99,
     }
     result = supabase.table("status_events").insert(event).execute()
     if not result.data:

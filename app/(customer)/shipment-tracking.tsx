@@ -57,7 +57,10 @@ async function getDirections(
   if (!apiKey) return null;
   try {
     const dest = await geocodePlace(destination, apiKey);
-    if (!dest) return null;
+    if (!dest) {
+      console.warn('[ORS] Geocoding failed for destination:', destination);
+      return null;
+    }
 
     const res  = await fetch(
       'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
@@ -86,7 +89,8 @@ async function getDirections(
       : `${Math.round(durationSec / 60)} min`;
 
     return { routePoints, durationText, destCoord: { latitude: dest.lat, longitude: dest.lng } };
-  } catch {
+  } catch (err) {
+    console.warn('[ORS] Directions fetch failed:', err);
     return null;
   }
 }
@@ -347,8 +351,14 @@ function ExpandableDetails({ shipment }: { shipment: ShipmentDetail }) {
 
 // ─── Live map section ─────────────────────────────────────────────────────────
 
+const LOCATION_STALE_MS = 10 * 60 * 1000; // 10 minutes
+
 function DriverStatusCard({ location, etaText }: { location: LocationUpdate | null; etaText?: string }) {
-  if (!location) {
+  // If no location, or location is older than 10 minutes, treat as stale
+  const isStale = !location ||
+    (Date.now() - new Date(location.timestamp).getTime()) > LOCATION_STALE_MS;
+
+  if (isStale) {
     return (
       <View style={styles.driverCard}>
         <Text style={styles.driverCardText}>⏳ Waiting for driver to start tracking...</Text>
@@ -502,7 +512,10 @@ function LiveMapSection({
     );
   }
 
-  if (!location) {
+  const locationIsStale = !location ||
+    (Date.now() - new Date(location.timestamp).getTime()) > LOCATION_STALE_MS;
+
+  if (locationIsStale) {
     return (
       <View>
         <View style={styles.mapPlaceholder}>

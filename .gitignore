@@ -49,6 +49,7 @@ backend/firebase-service-account.json
 /ios
 /android
 
-# Claude
+# Claude / internal docs (not for public repo)
 CLAUDE.md
+MANUAL_TESTING.md
 .claude/

@@ -90,15 +90,13 @@ export default function EmployeeProfileScreen() {
           </View>
         </View>
 
-        <Button
-          title={saving ? 'Saving…' : 'Save Changes'}
-          onPress={handleSave}
-          disabled={!hasChanges || saving}
-          style={styles.saveBtn}
-        />
-
-        {saving && (
-          <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />
+        {hasChanges && (
+          <Button
+            title={saving ? 'Saving…' : 'Save Changes'}
+            onPress={handleSave}
+            disabled={saving}
+            style={styles.saveBtn}
+          />
         )}
 
         {/* Sign out */}

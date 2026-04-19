@@ -299,8 +299,16 @@ export default function JobDetailScreen() {
   );
 
   // ── GPS auto-start when entering a GPS-active phase ──────────────────────────
+  // isInitialMountRef prevents auto-requesting permission on first screen load.
+  // GPS only auto-starts when the phase TRANSITIONS (e.g. after "Mark as Picked Up").
   const prevShowGpsRef = useRef(false);
+  const isInitialMountRef = useRef(true);
   useEffect(() => {
+    if (isInitialMountRef.current) {
+      prevShowGpsRef.current = showGps;
+      isInitialMountRef.current = false;
+      return;
+    }
     if (showGps && !prevShowGpsRef.current && !tracking) {
       startTracking();
     }

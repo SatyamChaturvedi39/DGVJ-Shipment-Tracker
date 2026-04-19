@@ -1,4 +1,4 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs, Redirect, useRouter } from 'expo-router';
 import { Text, View, TouchableOpacity, Alert } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function EmployeeLayout() {
   const { user, isLoading, logout } = useAuth();
+  const router = useRouter();
 
   if (isLoading) return <LoadingSpinner />;
   if (!user || user.role !== 'employee') return <Redirect href="/auth/login" />;
@@ -65,6 +66,14 @@ export default function EmployeeLayout() {
           title: 'Job Details',
           href: null,
           tabBarStyle: { display: 'none' },
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginLeft: 8, padding: 8 }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 24, lineHeight: 24 }}>&#8592;</Text>
+            </TouchableOpacity>
+          ),
         }}
       />
     </Tabs>

@@ -294,19 +294,21 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Sticky save bar */}
-      <View style={[styles.stickyBar, { paddingBottom: barPaddingBottom }]}>
-        <TouchableOpacity
-          style={[styles.saveBtn, (!hasChanges || saving) && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={!hasChanges || saving}
-          activeOpacity={0.85}
-        >
-          {saving
-            ? <ActivityIndicator color="#FFFFFF" />
-            : <Text style={styles.saveBtnText}>Save Changes</Text>}
-        </TouchableOpacity>
-      </View>
+      {/* Sticky save bar — only visible when there are unsaved changes */}
+      {hasChanges && (
+        <View style={[styles.stickyBar, { paddingBottom: barPaddingBottom }]}>
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator color="#FFFFFF" />
+              : <Text style={styles.saveBtnText}>Save Changes</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Change PIN modal */}
       <ChangePinModal visible={showChangePIN} onClose={() => setShowChangePIN(false)} />
