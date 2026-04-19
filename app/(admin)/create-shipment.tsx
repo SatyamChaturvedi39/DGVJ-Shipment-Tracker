@@ -14,7 +14,6 @@ import {
   Platform,
 } from 'react-native';
 import { router } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/colors';
 import { createShipment, getEmployees, getCustomers } from '@/services/api';
 import type { User } from '@/types';
@@ -289,10 +288,6 @@ export default function CreateShipment() {
   const [transportNumber, setTransportNumber] = useState('');
   const [etaDate, setEtaDate] = useState('');
   const [etaTime, setEtaTime] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [datePickerDate, setDatePickerDate] = useState<Date | null>(null);
-  const [timePickerDate, setTimePickerDate] = useState<Date | null>(null);
   const [pickupEmployeeId, setPickupEmployeeId] = useState<string | null>(null);
   const [deliveryEmployeeId, setDeliveryEmployeeId] = useState<string | null>(null);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
@@ -340,27 +335,31 @@ export default function CreateShipment() {
     );
   };
 
-  const handleDateChange = (_e: DateTimePickerEvent, selected?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selected) {
-      setDatePickerDate(selected);
-      const yyyy = selected.getFullYear();
-      const mm = String(selected.getMonth() + 1).padStart(2, '0');
-      const dd = String(selected.getDate()).padStart(2, '0');
-      setEtaDate(`${yyyy}-${mm}-${dd}`);
-      if (errors.eta_date) setErrors(prev => ({ ...prev, eta_date: undefined }));
-    }
+  // Auto-format date typed as DDMMYYYY → DD/MM/YYYY, store as YYYY-MM-DD
+  const handleDateInput = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 4) formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    else if (digits.length > 2) formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    setEtaDate(formatted);
+    if (errors.eta_date) setErrors(prev => ({ ...prev, eta_date: undefined }));
   };
 
-  const handleTimeChange = (_e: DateTimePickerEvent, selected?: Date) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (selected) {
-      setTimePickerDate(selected);
-      const hh = String(selected.getHours()).padStart(2, '0');
-      const min = String(selected.getMinutes()).padStart(2, '0');
-      setEtaTime(`${hh}:${min}`);
-      if (errors.eta_time) setErrors(prev => ({ ...prev, eta_time: undefined }));
+  // Store time as HH:MM, auto-insert colon
+  const handleTimeInput = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 4);
+    const formatted = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+    setEtaTime(formatted);
+    if (errors.eta_time) setErrors(prev => ({ ...prev, eta_time: undefined }));
+  };
+
+  // Convert DD/MM/YYYY → YYYY-MM-DD for backend
+  const parseDateForBackend = (d: string): string | undefined => {
+    const parts = d.split('/');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
     }
+    return undefined;
   };
 
   const validate = (): boolean => {
@@ -369,7 +368,12 @@ export default function CreateShipment() {
     if (!destination.trim()) e.destination = 'Destination is required';
     if (!transportNumber.trim()) e.transport_number = 'Transport number is required';
     if (!etaDate.trim()) {
-      e.eta_date = 'ETA date is required — tap the field to select';
+      e.eta_date = 'ETA date is required (DD/MM/YYYY)';
+    } else if (!parseDateForBackend(etaDate)) {
+      e.eta_date = 'Enter date as DD/MM/YYYY';
+    }
+    if (etaTime && !/^\d{2}:\d{2}$/.test(etaTime)) {
+      e.eta_time = 'Enter time as HH:MM';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -385,7 +389,7 @@ export default function CreateShipment() {
         goods_description: goodsDescription.trim() || undefined,
         transport_mode: transportMode,
         transport_number: transportNumber.trim(),
-        eta_date: etaDate.trim() || undefined,
+        eta_date: parseDateForBackend(etaDate),
         eta_time: etaTime.trim() || undefined,
         pickup_employee_id: pickupEmployeeId ?? undefined,
         delivery_employee_id: deliveryEmployeeId ?? undefined,
@@ -478,47 +482,30 @@ export default function CreateShipment() {
         {/* ETA */}
         <Text style={styles.section}>ETA</Text>
         <View style={styles.fieldWrap}>
-          <FieldLabel>ETA Date</FieldLabel>
-          <TouchableOpacity
-            style={[styles.dropdownBtn, errors.eta_date ? styles.textInputError : undefined]}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.dropdownBtnText, !etaDate && styles.dropdownPlaceholder]}>
-              {'📅  '}{etaDate || 'Select date'}
-            </Text>
-          </TouchableOpacity>
+          <FieldLabel>ETA Date *</FieldLabel>
+          <TextInput
+            style={[styles.textInput, errors.eta_date ? styles.textInputError : undefined]}
+            value={etaDate}
+            onChangeText={handleDateInput}
+            placeholder="DD/MM/YYYY"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+            maxLength={10}
+          />
           {errors.eta_date ? <Text style={styles.fieldError}>{errors.eta_date}</Text> : null}
-          {showDatePicker && (
-            <DateTimePicker
-              value={datePickerDate ?? new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-            />
-          )}
         </View>
         <View style={styles.fieldWrap}>
           <FieldLabel>ETA Time (optional)</FieldLabel>
-          <TouchableOpacity
-            style={[styles.dropdownBtn, errors.eta_time ? styles.textInputError : undefined]}
-            onPress={() => setShowTimePicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.dropdownBtnText, !etaTime && styles.dropdownPlaceholder]}>
-              {'🕐  '}{etaTime || 'Select time (optional)'}
-            </Text>
-          </TouchableOpacity>
+          <TextInput
+            style={[styles.textInput, errors.eta_time ? styles.textInputError : undefined]}
+            value={etaTime}
+            onChangeText={handleTimeInput}
+            placeholder="HH:MM  (24-hour)"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+            maxLength={5}
+          />
           {errors.eta_time ? <Text style={styles.fieldError}>{errors.eta_time}</Text> : null}
-          {showTimePicker && (
-            <DateTimePicker
-              value={timePickerDate ?? new Date()}
-              mode="time"
-              is24Hour={true}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleTimeChange}
-            />
-          )}
         </View>
 
         {/* Assignment */}

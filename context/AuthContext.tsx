@@ -22,6 +22,7 @@ interface AuthState {
   setupFirstPin: (phone: string, newPin: string, confirmPin: string) => Promise<void>;
   logout: () => Promise<void>;
   setDevRole: (role: UserRole) => void;
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthState>({
@@ -35,6 +36,7 @@ export const AuthContext = createContext<AuthState>({
   setupFirstPin: async () => {},
   logout: async () => {},
   setDevRole: () => {},
+  refreshUser: async () => {},
 });
 
 function createMockUser(phone: string, role: UserRole): User {
@@ -138,6 +140,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPendingPhone(null);
   }, []);
 
+  // ── Refresh user profile (called after profile save) ────────────────────────
+  const refreshUser = useCallback(async () => {
+    if (Config.DEV_MOCK_AUTH) return;
+    try {
+      const profile = await getMe();
+      setUser(profile);
+    } catch { /* keep current user on error */ }
+  }, []);
+
   // ── Dev role selector ────────────────────────────────────────────────────────
   const setDevRole = useCallback((role: UserRole) => {
     if (!Config.DEV_MOCK_AUTH) return;
@@ -158,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setupFirstPin,
         logout,
         setDevRole,
+        refreshUser,
       }}
     >
       {children}

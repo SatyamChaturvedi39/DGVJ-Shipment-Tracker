@@ -192,13 +192,14 @@ const pinStyles = StyleSheet.create({
 // ─── Main profile screen ──────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const barPaddingBottom = Math.max(insets.bottom, 16);
 
   const [name, setName] = useState(user?.name ?? '');
   const [companyName, setCompanyName] = useState(user?.company_name ?? '');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [showChangePIN, setShowChangePIN] = useState(false);
 
   const hasChanges =
@@ -213,7 +214,9 @@ export default function ProfileScreen() {
     setSaving(true);
     try {
       await updateMe({ name: name.trim(), company_name: companyName.trim() || undefined });
-      Alert.alert('Saved', 'Your profile has been updated.');
+      await refreshUser();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (e: any) {
       const msg = e?.response?.data?.detail ?? e?.message ?? 'Failed to save. Try again.';
       Alert.alert('Error', msg);
@@ -294,8 +297,12 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Sticky save bar — only visible when there are unsaved changes */}
-      {hasChanges && (
+      {/* Sticky save bar — only visible when there are unsaved changes or just saved */}
+      {saved ? (
+        <View style={[styles.stickyBar, styles.stickyBarSuccess, { paddingBottom: barPaddingBottom }]}>
+          <Text style={styles.successBarText}>✓  Profile saved successfully</Text>
+        </View>
+      ) : hasChanges ? (
         <View style={[styles.stickyBar, { paddingBottom: barPaddingBottom }]}>
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -308,7 +315,7 @@ export default function ProfileScreen() {
               : <Text style={styles.saveBtnText}>Save Changes</Text>}
           </TouchableOpacity>
         </View>
-      )}
+      ) : null}
 
       {/* Change PIN modal */}
       <ChangePinModal visible={showChangePIN} onClose={() => setShowChangePIN(false)} />
@@ -476,6 +483,18 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
+  },
+  stickyBarSuccess: {
+    backgroundColor: '#E8F5E9',
+    borderTopColor: '#A5D6A7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successBarText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2E7D32',
+    paddingBottom: 4,
   },
   saveBtn: {
     backgroundColor: Colors.primary,

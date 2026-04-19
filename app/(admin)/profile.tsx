@@ -17,10 +17,11 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
 export default function AdminProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
 
   const [name, setName] = useState(user?.name ?? '');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const hasChanges = name.trim() !== (user?.name ?? '');
 
@@ -32,7 +33,9 @@ export default function AdminProfileScreen() {
     setSaving(true);
     try {
       await updateMe({ name: name.trim() });
-      Alert.alert('Saved', 'Your profile has been updated.');
+      await refreshUser();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (e: any) {
       const msg = e?.response?.data?.detail ?? e?.message ?? 'Failed to save. Try again.';
       Alert.alert('Error', msg);
@@ -90,7 +93,12 @@ export default function AdminProfileScreen() {
           </View>
         </View>
 
-        {hasChanges && (
+        {saved && (
+          <View style={styles.successBanner}>
+            <Text style={styles.successBannerText}>✓  Profile saved successfully</Text>
+          </View>
+        )}
+        {hasChanges && !saved && (
           <Button
             title={saving ? 'Saving…' : 'Save Changes'}
             onPress={handleSave}
@@ -188,6 +196,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textMuted,
     fontWeight: '500',
+  },
+  successBanner: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#A5D6A7',
+  },
+  successBannerText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2E7D32',
   },
   saveBtn: {
     marginBottom: 12,

@@ -1,4 +1,4 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs, Redirect, useRouter } from 'expo-router';
 import { Text, TouchableOpacity, Alert } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function AdminLayout() {
   const { user, isLoading, logout } = useAuth();
+  const router = useRouter();
 
   if (isLoading) return <LoadingSpinner />;
   if (!user || user.role !== 'admin') return <Redirect href="/auth/login" />;
@@ -82,6 +83,11 @@ export default function AdminLayout() {
           title: 'Shipment Details',
           href: null,
           tabBarStyle: { display: 'none' },
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 8, padding: 8 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 24, lineHeight: 24 }}>&#8592;</Text>
+            </TouchableOpacity>
+          ),
         }}
       />
     </Tabs>

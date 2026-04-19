@@ -12,11 +12,11 @@ router = APIRouter(tags=["tracking"])
 # sync_events_to_phase() uses this to mark/unmark events correctly on
 # both forward transitions AND admin backward transitions.
 PHASE_COMPLETE_COUNT = {
-    "pickup": 0,           # nothing completed yet
-    "transit": 1,          # Picked Up
-    "handed_to_carrier": 3, # + Heading to Carrier + Handed to Carrier
-    "out_for_delivery": 5, # + Picked Up from Carrier + Out for Delivery
-    "completed": 6,        # + Delivered
+    "pickup": 0,            # nothing completed yet
+    "transit": 2,           # Picked Up + Heading to Carrier
+    "handed_to_carrier": 3, # + Handed to Carrier
+    "out_for_delivery": 5,  # + Picked Up from Carrier + Out for Delivery
+    "completed": 6,         # + Delivered
 }
 
 

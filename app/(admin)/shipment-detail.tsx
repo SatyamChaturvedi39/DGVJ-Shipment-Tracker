@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PHASE_CONFIG, PHASE_ORDER } from '@/constants/phases';
-import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase, updateShipment } from '@/services/api';
+import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase, updateShipment, deleteShipment } from '@/services/api';
 import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 import type { ShipmentDetail, StatusEvent, User, ShipmentPhase } from '@/types';
 
@@ -326,14 +326,41 @@ export default function ShipmentDetailScreen() {
           try {
             await transitionPhase(shipment.id, targetPhase);
             await load();
-          } catch {
-            Alert.alert('Error', 'Failed to change phase. Please try again.');
+          } catch (e: any) {
+            const rawDetail = e?.response?.data?.detail;
+            const msg = Array.isArray(rawDetail)
+              ? (rawDetail as { msg?: string }[]).map(d => d?.msg ?? String(d)).join(', ')
+              : (typeof rawDetail === 'string' ? rawDetail : 'Failed to change phase. Please try again.');
+            Alert.alert('Error', msg);
           } finally {
             setSettingPhase(false);
           }
         },
       },
     ]);
+  };
+
+  const handleDelete = () => {
+    if (!shipment) return;
+    Alert.alert(
+      'Delete Shipment',
+      `Delete shipment ${shipment.tracking_id}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteShipment(shipment.id);
+              router.back();
+            } catch {
+              Alert.alert('Error', 'Failed to delete shipment. Please try again.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleAddStatus = async (label: string, desc: string) => {
@@ -556,6 +583,11 @@ export default function ShipmentDetailScreen() {
           </View>
         )}
 
+        {/* ── Delete shipment ───────────────────────────────────── */}
+        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.8}>
+          <Text style={styles.deleteBtnText}>Delete Shipment</Text>
+        </TouchableOpacity>
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -638,6 +670,22 @@ const styles = StyleSheet.create({
   adminNoteLabel:     { fontSize: 14, fontWeight: '700', color: '#5D4037', marginBottom: 2 },
   adminNoteDesc:      { fontSize: 13, color: '#795548', marginBottom: 4 },
   adminNoteTime:      { fontSize: 11, color: '#A1887F' },
+
+  // Delete button
+  deleteBtn: {
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deleteBtnText: {
+    color: Colors.error,
+    fontWeight: '700',
+    fontSize: 15,
+  },
 
   // Completed banner
   completedBanner:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 14, padding: 16, gap: 14, marginBottom: 16, borderWidth: 1, borderColor: '#A5D6A7' },

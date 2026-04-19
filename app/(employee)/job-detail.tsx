@@ -298,23 +298,19 @@ export default function JobDetailScreen() {
     (isDeliveryEmployee && phase === 'out_for_delivery')
   );
 
-  // ── GPS auto-start when entering a GPS-active phase ──────────────────────────
-  // isInitialMountRef prevents auto-requesting permission on first screen load.
-  // GPS only auto-starts when the phase TRANSITIONS (e.g. after "Mark as Picked Up").
-  const prevShowGpsRef = useRef(false);
-  const isInitialMountRef = useRef(true);
+  // ── GPS auto-start when phase CHANGES to a GPS-active phase ─────────────────
+  // prevPhaseRef is null on initial load — we skip auto-start then.
+  // Only auto-starts when the employee triggers a phase transition (not on load).
+  const prevPhaseRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isInitialMountRef.current) {
-      prevShowGpsRef.current = showGps;
-      isInitialMountRef.current = false;
-      return;
-    }
-    if (showGps && !prevShowGpsRef.current && !tracking) {
+    if (!shipment) return;
+    const prevPhase = prevPhaseRef.current;
+    prevPhaseRef.current = shipment.current_phase;
+    if (prevPhase !== null && showGps && !tracking) {
       startTracking();
     }
-    prevShowGpsRef.current = showGps;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showGps]);
+  }, [shipment?.current_phase]);
 
   // ── GPS handlers ─────────────────────────────────────────────────────────────
 
@@ -528,9 +524,24 @@ export default function JobDetailScreen() {
             </View>
           )}
 
+          {showGps && !tracking && (
+            <Text style={styles.gpsRequiredHint}>
+              ⚠  Start location sharing above before proceeding
+            </Text>
+          )}
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: action.color }, transitioning && styles.actionBtnDisabled]}
-            onPress={() => confirmTransition(action.confirmTitle, action.confirmMsg, action.nextPhase, action.successMsg)}
+            style={[
+              styles.actionBtn,
+              { backgroundColor: action.color },
+              (transitioning || (showGps && !tracking)) && styles.actionBtnDisabled,
+            ]}
+            onPress={() => {
+              if (showGps && !tracking) {
+                Alert.alert('GPS Required', 'Start location sharing before marking this step.');
+                return;
+              }
+              confirmTransition(action.confirmTitle, action.confirmMsg, action.nextPhase, action.successMsg);
+            }}
             disabled={transitioning}
             activeOpacity={0.8}
           >
@@ -707,6 +718,7 @@ const styles = StyleSheet.create({
   },
   actionBtnDisabled: { opacity: 0.6 },
   actionBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
+  gpsRequiredHint: { fontSize: 12, color: Colors.warning, fontWeight: '600', marginBottom: 10, textAlign: 'center' },
 
   // Undo pickup
   undoCard: {
