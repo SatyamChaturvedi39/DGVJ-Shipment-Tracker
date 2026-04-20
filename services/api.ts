@@ -147,4 +147,28 @@ export async function getLatestLocation(shipmentId: string): Promise<LocationUpd
   return data;
 }
 
+// ─── AI ──────────────────────────────────────────────────────────────────────
+
+export async function generateStatusUpdate(payload: {
+  shipment_context: {
+    tracking_id: string;
+    origin: string;
+    destination: string;
+    current_phase: string;
+    transport_mode: string;
+  };
+  admin_note: string;
+}): Promise<{ label: string; description: string }> {
+  const { data } = await api.post('/ai/generate-status', payload);
+  return data;
+}
+
+export async function askAI(payload: {
+  question: string;
+  history: { role: string; content: string }[];
+}): Promise<{ answer: string; tools_used: string[] }> {
+  const { data } = await api.post('/ai/ask', payload);
+  return data;
+}
+
 export default api;

@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PHASE_CONFIG, PHASE_ORDER } from '@/constants/phases';
-import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase, updateShipment, deleteShipment } from '@/services/api';
+import { getShipment, getEmployees, getCustomers, addStatusEvent, transitionPhase, updateShipment, deleteShipment, generateStatusUpdate } from '@/services/api';
 import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 import type { ShipmentDetail, StatusEvent, User, ShipmentPhase } from '@/types';
 
@@ -173,23 +173,42 @@ const tl = StyleSheet.create({
 // ─── Add status event modal ───────────────────────────────────────────────────
 
 function AddStatusModal({
-  visible, onClose, onSubmit, submitting,
+  visible, onClose, onSubmit, submitting, shipmentCtx,
 }: {
   visible: boolean;
   onClose: () => void;
   onSubmit: (label: string, desc: string) => void;
   submitting: boolean;
+  shipmentCtx?: { tracking_id: string; origin: string; destination: string; current_phase: string; transport_mode: string };
 }) {
-  const [label, setLabel] = useState('');
-  const [desc, setDesc]   = useState('');
-  const [err, setErr]     = useState('');
+  const [label, setLabel]       = useState('');
+  const [desc, setDesc]         = useState('');
+  const [err, setErr]           = useState('');
+  const [aiNote, setAiNote]     = useState('');
+  const [generating, setGen]    = useState(false);
+  const [aiErr, setAiErr]       = useState('');
 
-  const reset = () => { setLabel(''); setDesc(''); setErr(''); };
+  const reset = () => { setLabel(''); setDesc(''); setErr(''); setAiNote(''); setAiErr(''); };
   const handleClose  = () => { reset(); onClose(); };
   const handleSubmit = () => {
     if (!label.trim()) { setErr('Status label is required'); return; }
     onSubmit(label.trim(), desc.trim());
     reset();
+  };
+
+  const handleGenerate = async () => {
+    if (!aiNote.trim() || !shipmentCtx) return;
+    setGen(true); setAiErr('');
+    try {
+      const result = await generateStatusUpdate({ shipment_context: shipmentCtx, admin_note: aiNote.trim() });
+      setLabel(result.label);
+      setDesc(result.description);
+      setErr('');
+    } catch {
+      setAiErr('AI generation failed. Check GROQ_API_KEY is set.');
+    } finally {
+      setGen(false);
+    }
   };
 
   return (
@@ -198,28 +217,54 @@ function AddStatusModal({
       <View style={md.sheet}>
         <View style={md.handle} />
         <Text style={md.title}>Add Status Update</Text>
-        <View style={md.body}>
-          <Text style={md.fieldLabel}>Status Label *</Text>
-          <TextInput
-            style={[md.input, err ? md.inputError : undefined]}
-            value={label}
-            onChangeText={v => { setLabel(v); setErr(''); }}
-            placeholder="e.g. Arrived at Mumbai airport"
-            placeholderTextColor={Colors.textMuted}
-          />
-          {err ? <Text style={md.errText}>{err}</Text> : null}
+        <ScrollView style={md.scroll} keyboardShouldPersistTaps="handled">
+          <View style={md.body}>
+            <View style={md.aiBox}>
+              <Text style={md.aiBoxTitle}>✨ Generate with AI</Text>
+              <Text style={md.aiBoxSub}>Type a rough note — Llama 3.1 will write a professional update</Text>
+              <TextInput
+                style={md.input}
+                value={aiNote}
+                onChangeText={setAiNote}
+                placeholder="e.g. Shipment delayed at airport, customs clearance"
+                placeholderTextColor={Colors.textMuted}
+                multiline
+                numberOfLines={2}
+              />
+              {aiErr ? <Text style={md.errText}>{aiErr}</Text> : null}
+              <TouchableOpacity
+                style={[md.aiBtn, (!aiNote.trim() || generating) && md.submitDisabled]}
+                onPress={handleGenerate}
+                disabled={!aiNote.trim() || generating}
+              >
+                {generating
+                  ? <><ActivityIndicator color={Colors.primary} size="small" /><Text style={md.aiBtnText}>  Generating…</Text></>
+                  : <Text style={md.aiBtnText}>✨ Generate</Text>}
+              </TouchableOpacity>
+            </View>
 
-          <Text style={[md.fieldLabel, { marginTop: 14 }]}>Description (optional)</Text>
-          <TextInput
-            style={[md.input, md.inputMulti]}
-            value={desc}
-            onChangeText={setDesc}
-            placeholder="Additional details…"
-            placeholderTextColor={Colors.textMuted}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
+            <Text style={md.fieldLabel}>Status Label *</Text>
+            <TextInput
+              style={[md.input, err ? md.inputError : undefined]}
+              value={label}
+              onChangeText={v => { setLabel(v); setErr(''); }}
+              placeholder="e.g. Arrived at Mumbai airport"
+              placeholderTextColor={Colors.textMuted}
+            />
+            {err ? <Text style={md.errText}>{err}</Text> : null}
+
+            <Text style={[md.fieldLabel, { marginTop: 14 }]}>Description (optional)</Text>
+            <TextInput
+              style={[md.input, md.inputMulti]}
+              value={desc}
+              onChangeText={setDesc}
+              placeholder="Additional details…"
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+        </ScrollView>
         <TouchableOpacity
           style={[md.submitBtn, submitting && md.submitDisabled]}
           onPress={handleSubmit}
@@ -236,18 +281,24 @@ function AddStatusModal({
 
 const md = StyleSheet.create({
   backdrop:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-  sheet:         { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 36 },
+  sheet:         { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 36, maxHeight: '90%' },
+  scroll:        { flexShrink: 1 },
   handle:        { width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
   title:         { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
   body:          { padding: 20 },
   fieldLabel:    { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6 },
-  input:         { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, height: 52, paddingHorizontal: 16, fontSize: 15, color: Colors.textPrimary },
-  inputMulti:    { height: 88, paddingTop: 14, textAlignVertical: 'top' },
+  input:         { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, minHeight: 52, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary },
+  inputMulti:    { minHeight: 88, paddingTop: 14, textAlignVertical: 'top' },
   inputError:    { borderColor: Colors.error },
   errText:       { fontSize: 12, color: Colors.error, marginTop: 4 },
   submitBtn:     { marginHorizontal: 20, backgroundColor: Colors.primary, borderRadius: 12, height: 52, justifyContent: 'center', alignItems: 'center' },
   submitDisabled:{ opacity: 0.6 },
   submitText:    { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  aiBox:         { backgroundColor: '#F0F4FF', borderRadius: 12, borderWidth: 1, borderColor: '#C5D0F0', padding: 14, marginBottom: 20 },
+  aiBoxTitle:    { fontSize: 14, fontWeight: '700', color: '#3B4FCC', marginBottom: 2 },
+  aiBoxSub:      { fontSize: 12, color: Colors.textSecondary, marginBottom: 10 },
+  aiBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.primary, backgroundColor: '#FFF' },
+  aiBtnText:     { color: Colors.primary, fontWeight: '700', fontSize: 14 },
 });
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -596,6 +647,13 @@ export default function ShipmentDetailScreen() {
         onClose={() => setAddVis(false)}
         onSubmit={handleAddStatus}
         submitting={addingStatus}
+        shipmentCtx={shipment ? {
+          tracking_id: shipment.tracking_id,
+          origin: shipment.origin,
+          destination: shipment.destination,
+          current_phase: shipment.current_phase,
+          transport_mode: shipment.transport_mode,
+        } : undefined}
       />
     </>
   );

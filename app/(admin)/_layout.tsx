@@ -78,6 +78,13 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="ai-assistant"
+        options={{
+          title: 'AI',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>&#10024;</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="shipment-detail"
         options={{
           title: 'Shipment Details',

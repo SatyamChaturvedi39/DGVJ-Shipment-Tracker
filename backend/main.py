@@ -12,6 +12,7 @@ from routes.auth import router as auth_router
 from routes.users import router as users_router
 from routes.shipments import router as shipments_router
 from routes.tracking import router as tracking_router
+from routes.ai import router as ai_router
 from websocket.handler import router as ws_router
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(shipments_router)
 app.include_router(tracking_router)
+app.include_router(ai_router)
 app.include_router(ws_router)
 
 
