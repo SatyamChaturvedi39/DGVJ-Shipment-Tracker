@@ -4,6 +4,8 @@ This file gives Claude full context to resume work across sessions and accounts.
 
 **IMPORTANT for Claude:** Never add `Co-Authored-By` trailers to commit messages in this repo. Do not include any `Co-Authored-By: Claude` lines. All commits must be authored solely by the user.
 
+**IMPORTANT for Claude:** `PROJECT_DOCS.md` is a private reference file. It must always remain in `.gitignore` and must never be committed or pushed to GitHub. If it is ever accidentally staged, unstage it immediately.
+
 ---
 
 ## What this app is
