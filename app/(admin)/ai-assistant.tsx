@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -22,18 +23,20 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  'How many shipments are active right now?',
-  'Show me delayed shipments',
-  "What's today's operations summary?",
-  'Which employee has the most completed deliveries?',
+  'How many shipments are active?',
+  'Show delayed shipments',
+  "Today's operations summary",
+  'Employee performance stats',
+  'Which phase has the most shipments?',
+  'Any shipments delivered today?',
 ];
 
 const TOOL_LABELS: Record<string, string> = {
-  get_active_shipments:    'Active Shipments',
-  get_delayed_shipments:   'Delayed Shipments',
-  get_shipment_detail:     'Shipment Detail',
-  get_employee_performance:'Employee Stats',
-  get_operations_summary:  'Ops Summary',
+  get_active_shipments:     'Active Shipments',
+  get_delayed_shipments:    'Delayed Shipments',
+  get_shipment_detail:      'Shipment Detail',
+  get_employee_performance: 'Employee Stats',
+  get_operations_summary:   'Ops Summary',
 };
 
 export default function AIAssistantScreen() {
@@ -49,7 +52,7 @@ export default function AIAssistantScreen() {
     if (!q || loading) return;
     setInput('');
 
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: q };
+    const userMsg: Message    = { id: Date.now().toString(), role: 'user', content: q };
     const thinkingMsg: Message = { id: 'thinking', role: 'assistant', content: '' };
     setMessages(prev => [...prev, userMsg, thinkingMsg]);
     setLoading(true);
@@ -80,7 +83,7 @@ export default function AIAssistantScreen() {
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    const isUser = item.role === 'user';
+    const isUser     = item.role === 'user';
     const isThinking = item.id === 'thinking';
 
     if (isThinking) {
@@ -117,18 +120,12 @@ export default function AIAssistantScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={90}
       >
+        {/* Chat area */}
         {messages.length === 0 ? (
           <View style={s.emptyWrap}>
             <Text style={s.emptyIcon}>✨</Text>
             <Text style={s.emptyTitle}>AI Operations Copilot</Text>
-            <Text style={s.emptySub}>Ask questions about live shipment data — powered by Llama 3.1</Text>
-            <View style={s.chipsWrap}>
-              {SUGGESTIONS.map(s_ => (
-                <TouchableOpacity key={s_} style={s.chip} onPress={() => send(s_)}>
-                  <Text style={s.chipText}>{s_}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={s.emptySub}>Ask questions about live shipment data — powered by Llama 3.3</Text>
           </View>
         ) : (
           <FlatList
@@ -141,6 +138,27 @@ export default function AIAssistantScreen() {
           />
         )}
 
+        {/* Suggestion chips — always visible */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.chipsScroll}
+          contentContainerStyle={s.chipsContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {SUGGESTIONS.map(suggestion => (
+            <TouchableOpacity
+              key={suggestion}
+              style={[s.chip, loading && s.chipDisabled]}
+              onPress={() => send(suggestion)}
+              disabled={loading}
+            >
+              <Text style={s.chipText}>{suggestion}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Input bar */}
         <View style={s.inputRow}>
           <TextInput
             style={s.textInput}
@@ -173,10 +191,13 @@ const s = StyleSheet.create({
   emptyWrap:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyIcon:       { fontSize: 48, marginBottom: 12 },
   emptyTitle:      { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginBottom: 8, textAlign: 'center' },
-  emptySub:        { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginBottom: 28, lineHeight: 20 },
-  chipsWrap:       { gap: 10, width: '100%' },
-  chip:            { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 12 },
-  chipText:        { fontSize: 14, color: Colors.textPrimary },
+  emptySub:        { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+
+  chipsScroll:     { flexShrink: 0, borderTopWidth: 1, borderTopColor: Colors.border },
+  chipsContent:    { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  chip:            { backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 8 },
+  chipDisabled:    { opacity: 0.4 },
+  chipText:        { fontSize: 13, color: Colors.textPrimary, fontWeight: '500' },
 
   bubbleWrap:      { marginBottom: 12 },
   bubbleWrapUser:  { alignItems: 'flex-end' },
