@@ -53,4 +53,8 @@ backend/firebase-service-account.json
 CLAUDE.md
 MANUAL_TESTING.md
 PROJECT_DOCS.md
+DEV_GUIDE.md
 .claude/
+
+# Build artifacts
+build_log.txt
