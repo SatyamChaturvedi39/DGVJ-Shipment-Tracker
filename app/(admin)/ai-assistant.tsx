@@ -65,11 +65,12 @@ export default function AIAssistantScreen() {
         tools_used: result.tools_used,
       };
       setMessages(prev => [...prev.filter(m => m.id !== 'thinking'), aiMsg]);
-    } catch {
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail ?? e?.message ?? 'Unknown error';
       const errMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, the AI service is unavailable right now. Make sure GROQ_API_KEY is configured.',
+        content: `AI error: ${detail}`,
       };
       setMessages(prev => [...prev.filter(m => m.id !== 'thinking'), errMsg]);
     } finally {

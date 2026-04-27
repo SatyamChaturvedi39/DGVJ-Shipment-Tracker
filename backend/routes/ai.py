@@ -10,7 +10,7 @@ from database import supabase
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = "llama-3.1-70b-versatile"
+MODEL = "llama-3.3-70b-versatile"
 
 def _get_client() -> OpenAI:
     if not GROQ_API_KEY:
