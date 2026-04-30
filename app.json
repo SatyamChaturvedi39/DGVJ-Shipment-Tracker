@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.digvijayexpress.blr",
       "config": {
-        "googleMapsApiKey": "PLACEHOLDER"
+        "googleMapsApiKey": "AIzaSyAZ5jOgr9P7leJFO0AVkqFAEYnnnK2lT_I"
       }
     },
     "android": {
@@ -32,7 +32,7 @@
       "versionCode": 1,
       "config": {
         "googleMaps": {
-          "apiKey": "PLACEHOLDER"
+          "apiKey": "AIzaSyAZ5jOgr9P7leJFO0AVkqFAEYnnnK2lT_I"
         }
       },
       "permissions": [
