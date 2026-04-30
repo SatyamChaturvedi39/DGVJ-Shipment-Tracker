@@ -64,7 +64,7 @@ def health():
 
 @app.on_event("startup")
 def startup():
-    required = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY", "FIREBASE_PROJECT_ID"]
+    required = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY", "JWT_SECRET_KEY"]
     missing = [v for v in required if not os.getenv(v)]
     if missing:
         print(f"[WARN] Missing env vars: {missing} — some features may not work")

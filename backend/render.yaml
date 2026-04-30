@@ -10,11 +10,11 @@ services:
         value: "3.11.9"
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-      - key: FIREBASE_PROJECT_ID
+      - key: JWT_SECRET_KEY
         sync: false
-      - key: FIREBASE_SERVICE_ACCOUNT_PATH
-        value: ./firebase-service-account.json
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
