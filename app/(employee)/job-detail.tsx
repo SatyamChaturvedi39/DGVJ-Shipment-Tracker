@@ -17,6 +17,8 @@ import { PHASE_CONFIG, PHASE_ORDER as PHASE_STEPS } from '@/constants/phases';
 import { getShipment, transitionPhase, updateLocation } from '@/services/api';
 import { getIdToken } from '@/services/auth';
 import { useAuth } from '@/hooks/useAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LOCATION_TASK_NAME } from '@/app/_layout';
 import type { ShipmentDetail, StatusEvent, ShipmentPhase } from '@/types';
 import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 
@@ -315,28 +317,65 @@ export default function JobDetailScreen() {
   // ── GPS handlers ─────────────────────────────────────────────────────────────
 
   const startTracking = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
+    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+    if (fgStatus !== 'granted') {
       Alert.alert('Location Required', 'Enable location permission to share your position.');
       return;
     }
+    
+    // Request background permission
+    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    if (bgStatus !== 'granted') {
+      Alert.alert('Background Location Recommended', 'For best results, allow location tracking "All the time" so updates continue while your phone is locked.', [{ text: 'OK' }]);
+    }
+
+    // Save shipment ID for the background task
+    await AsyncStorage.setItem('active_tracking_shipment_id', id!);
+
+    // Start background tracking
+    if (bgStatus === 'granted') {
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000,
+        distanceInterval: 10,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: 'Live Tracking Active',
+          notificationBody: 'Sharing your location for delivery.',
+          notificationColor: '#C62828',
+        },
+      });
+    }
+
     const sub = await Location.watchPositionAsync(
       { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
         setCurrentCoords({ lat, lng });
         if (Config.DEV_MOCK_AUTH) return;
-        try { await updateLocation({ shipment_id: id!, lat, lng }); }
-        catch (e) { console.warn('[GPS] Location update failed:', e); }
+        // If background tracking isn't granted, we must manually update here
+        if (bgStatus !== 'granted') {
+          try { await updateLocation({ shipment_id: id!, lat, lng }); }
+          catch (e) { console.warn('[GPS] Location update failed:', e); }
+        }
       },
     );
     locationSub.current = sub;
     setTracking(true);
   };
 
-  const stopTracking = () => {
+  const stopTracking = async () => {
     locationSub.current?.remove();
     locationSub.current = null;
+    try {
+      const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+      if (hasStarted) {
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+      }
+      await AsyncStorage.removeItem('active_tracking_shipment_id');
+    } catch (e) {
+      console.warn('[GPS] Error stopping background updates:', e);
+    }
     setTracking(false);
     setCurrentCoords(null);
   };

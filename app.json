@@ -37,7 +37,10 @@
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -50,7 +53,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Digvijay BLR needs your location to track shipment delivery."
+          "locationAlwaysAndWhenInUsePermission": "Digvijay BLR needs your location to track shipment delivery in the background.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ],
       "@react-native-community/datetimepicker"
