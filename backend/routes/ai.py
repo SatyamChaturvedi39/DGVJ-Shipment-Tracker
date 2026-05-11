@@ -36,7 +36,7 @@ class AskRequest(BaseModel):
     history: list[dict] = []
 
 
-# ─── Tool definitions for Llama 3.1 ──────────────────────────────────────────
+# ─── Tool definitions for Llama 3.3 ──────────────────────────────────────────
 
 TOOLS = [
     {
@@ -212,7 +212,7 @@ def generate_status(body: GenerateStatusRequest, _user: dict = Depends(require_r
     }
     phase_label = phase_labels.get(ctx.current_phase, ctx.current_phase)
 
-    prompt = f"""You are a professional logistics coordinator for Digvijay Express, a B2B courier in Bengaluru, India.
+    prompt = f"""You are a professional logistics coordinator for Digvijay Express, a B2B courier in India.
 
 Shipment details:
 - Tracking ID: {ctx.tracking_id}
@@ -244,7 +244,7 @@ Generate a professional, customer-facing status update. Respond with ONLY valid 
 
 # ─── Endpoint 2 — AI Operations Copilot (agentic tool use) ───────────────────
 
-COPILOT_SYSTEM = """You are Digi, a friendly operations assistant for Digvijay Express, a logistics company in Bengaluru that ships goods across India by air and train.
+COPILOT_SYSTEM = """You are Digi, a friendly operations assistant for Digvijay Express, a logistics company that ships goods across India by air and train.
 You help the branch manager stay on top of their daily operations. Always respond in plain, simple business language — no technical terms, no database field names, no jargon.
 
 How to translate data into plain language:

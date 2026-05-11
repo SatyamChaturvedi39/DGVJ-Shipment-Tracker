@@ -188,8 +188,8 @@ export default function MyJobs() {
     const role = getEmployeeRole(s, userId);
     // Pickup driver acts on pickup + transit phases
     if (role === 'pickup') return s.current_phase === 'pickup' || s.current_phase === 'transit';
-    // Delivery driver acts on handed_to_carrier + out_for_delivery phases
-    if (role === 'delivery') return s.current_phase === 'handed_to_carrier' || s.current_phase === 'out_for_delivery';
+    // Delivery driver acts on handed_to_carrier + out_for_delivery phases, but can see them earlier
+    if (role === 'delivery') return true;
     return false;
   });
 

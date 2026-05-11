@@ -198,26 +198,26 @@ def run_checks(client: httpx.Client) -> str | None:
     try:
         r = client.post(
             f"{BASE}/shipments/{shipment_id}/status-event",
-            json={"label": "Departed Bengaluru", "description": "Train departed Yeshwanthpur station"},
+            json={"label": "Departed Origin", "description": "Train departed origin station"},
             headers=HEADERS,
         )
-        if r.status_code == 200 and r.json()["label"] == "Departed Bengaluru":
+        if r.status_code == 200 and r.json()["label"] == "Departed Origin":
             _ok("POST /shipments/{id}/status-event", f"id={r.json()['id'][:8]}…")
         else:
             _fail("POST /shipments/{id}/status-event", f"status={r.status_code} body={r.text}")
     except Exception as e:
         _fail("POST /shipments/{id}/status-event", str(e))
 
-    # ── Step 10: PUT /shipments/{id}/phase → delivery ────────────────────────
+    # ── Step 10: PUT /shipments/{id}/phase → out_for_delivery ────────────────────────
     try:
         r = client.put(f"{BASE}/shipments/{shipment_id}/phase",
-                       json={"phase": "delivery"}, headers=HEADERS)
-        if r.status_code == 200 and r.json()["phase"] == "delivery":
-            _ok("PUT phase → delivery")
+                       json={"phase": "out_for_delivery"}, headers=HEADERS)
+        if r.status_code == 200 and r.json()["phase"] == "out_for_delivery":
+            _ok("PUT phase → out_for_delivery")
         else:
-            _fail("PUT phase → delivery", f"status={r.status_code} body={r.text}")
+            _fail("PUT phase → out_for_delivery", f"status={r.status_code} body={r.text}")
     except Exception as e:
-        _fail("PUT phase → delivery", str(e))
+        _fail("PUT phase → out_for_delivery", str(e))
 
     # ── Step 11: PUT /shipments/{id}/phase → completed ───────────────────────
     try:

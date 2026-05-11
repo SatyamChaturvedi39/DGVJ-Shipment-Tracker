@@ -32,7 +32,7 @@ class UpdateShipmentRequest(BaseModel):
 
 
 class PhaseTransitionRequest(BaseModel):
-    phase: Literal["pickup", "transit", "delivery", "completed"]
+    phase: Literal["pickup", "transit", "handed_to_carrier", "out_for_delivery", "completed"]
 
 
 class AddStatusEventRequest(BaseModel):
