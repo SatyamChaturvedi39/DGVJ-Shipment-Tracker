@@ -114,7 +114,69 @@ async def transition_phase(
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
+    # If phase is handed_to_carrier, use Groq to estimate future ETAs based on distance
+    if body.phase == "handed_to_carrier":
+        import asyncio
+        asyncio.create_task(_generate_etas_with_ai(shipment))
+
     return {"phase": body.phase}
+
+
+async def _generate_etas_with_ai(shipment: dict) -> None:
+    try:
+        from openai import OpenAI
+        import os
+        import json
+        
+        api_key = os.getenv("GROQ_API_KEY", "")
+        if not api_key: return
+        client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        
+        origin = shipment.get("origin")
+        dest = shipment.get("destination")
+        mode = shipment.get("transport_mode")
+        now_str = datetime.now().strftime('%b %d, %I:%M %p')
+        
+        prompt = f"""
+        You are a logistics AI for 'Digvijay Express', an Indian logistics company. 
+        A shipment has just been handed to the carrier (train/airline) and is traveling from {origin} to {dest} via {mode}.
+        Based on the real-world distance and travel time between {origin} and {dest} in India, estimate a realistic future date and time for the following final 3 milestones. 
+        Assume the current time of departure is {now_str}.
+        Make the estimations highly realistic. For example, a train from Delhi to Mumbai takes ~16-24 hours. A flight takes ~2 hours.
+        Output valid JSON only with exactly these keys.
+        {{
+            "Picked Up from Carrier": "e.g. Oct 14, 2:00 PM",
+            "Out for Delivery": "e.g. Oct 14, 4:00 PM",
+            "Delivered": "e.g. Oct 14, 7:00 PM"
+        }}
+        """
+        
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        
+        data = json.loads(response.choices[0].message.content)
+        
+        for label, eta in data.items():
+            event_res = supabase.table("status_events").select("id,description").eq("shipment_id", shipment["id"]).eq("label", label).execute()
+            if event_res.data:
+                ev_id = event_res.data[0]["id"]
+                desc = event_res.data[0].get("description", "")
+                if "(ETA:" in desc:
+                    desc = desc.split("(ETA:")[0].strip()
+                new_desc = f"{desc} (ETA: {eta})"
+                supabase.table("status_events").update({"description": new_desc}).eq("id", ev_id).execute()
+                
+                # Broadcast the update so UI refreshes
+                await manager.broadcast(shipment["id"], {
+                    "type": "status_update",
+                    "label": label,
+                    "description": new_desc,
+                })
+    except Exception as e:
+        print("[AI] Failed to generate ETAs:", e)
 
 
 @router.post("/shipments/{shipment_id}/status-event")
