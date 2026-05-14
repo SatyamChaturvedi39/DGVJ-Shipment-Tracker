@@ -57,62 +57,63 @@ async def transition_phase(
     background_tasks: BackgroundTasks,
     user: dict = Depends(require_role("admin", "employee")),
 ):
-    result = supabase.table("shipments").select("*").eq("id", shipment_id).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Shipment not found")
+    try:
+        result = supabase.table("shipments").select("*").eq("id", shipment_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
 
-    shipment = result.data[0]
+        shipment = result.data[0]
 
-    # ── Employee authorization ─────────────────────────────────────────────────
-    if user["role"] == "employee":
-        uid = user["id"]
-        current_phase = shipment.get("current_phase")
-        pickup_id = shipment.get("pickup_employee_id")
-        delivery_id = shipment.get("delivery_employee_id")
-        is_pickup = pickup_id == uid
-        is_delivery = delivery_id == uid
+        # ── Employee authorization ─────────────────────────────────────────────────
+        if user["role"] == "employee":
+            uid = user["id"]
+            pickup_id = shipment.get("pickup_employee_id")
+            delivery_id = shipment.get("delivery_employee_id")
+            is_pickup = pickup_id == uid
+            is_delivery = delivery_id == uid
 
-        if not is_pickup and not is_delivery:
-            if not pickup_id and not delivery_id:
-                raise HTTPException(status_code=403, detail="No drivers assigned to this shipment. Ask admin to assign drivers first.")
-            raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
+            if not is_pickup and not is_delivery:
+                raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
 
-        if body.phase == "pickup":
-            if not is_pickup:
-                raise HTTPException(status_code=403, detail="Only the pickup driver can undo a pickup")
-            if current_phase != "transit":
-                raise HTTPException(status_code=400, detail="Pickup can only be undone when shipment is in transit")
-        elif body.phase in ("transit", "handed_to_carrier"):
-            if not is_pickup:
-                raise HTTPException(status_code=403, detail="Only the pickup driver can perform this action")
-        elif body.phase in ("out_for_delivery", "completed"):
-            if not is_delivery:
-                raise HTTPException(status_code=403, detail="Only the delivery driver can perform this action")
-        else:
-            raise HTTPException(status_code=400, detail="Invalid phase transition")
+            if body.phase == "pickup":
+                if not is_pickup:
+                    raise HTTPException(status_code=403, detail="Only the pickup driver can undo a pickup")
+            elif body.phase in ("transit", "handed_to_carrier"):
+                if not is_pickup:
+                    raise HTTPException(status_code=403, detail="Only the pickup driver can perform this action")
+            elif body.phase in ("out_for_delivery", "completed"):
+                if not is_delivery:
+                    raise HTTPException(status_code=403, detail="Only the delivery driver can perform this action")
 
-    # ── Apply phase update ────────────────────────────────────────────────────
-    updates: dict = {"current_phase": body.phase}
-    if body.phase == "completed":
-        updates["completed_at"] = datetime.now(timezone.utc).isoformat()
-    elif shipment.get("completed_at"):
-        updates["completed_at"] = None
+        # ── Apply phase update ────────────────────────────────────────────────────
+        updates: dict = {"current_phase": body.phase}
+        if body.phase == "completed":
+            updates["completed_at"] = datetime.now(timezone.utc).isoformat()
+        elif shipment.get("completed_at"):
+            updates["completed_at"] = None
 
-    supabase.table("shipments").update(updates).eq("id", shipment_id).execute()
+        supabase.table("shipments").update(updates).eq("id", shipment_id).execute()
 
-    sync_events_to_phase(shipment_id, body.phase)
+        # Sync timeline events
+        sync_events_to_phase(shipment_id, body.phase)
 
-    await manager.broadcast(shipment_id, {
-        "type": "phase_change",
-        "phase": body.phase,
-        "label": body.phase.capitalize(),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
+        # Broadcast via WebSocket
+        await manager.broadcast(shipment_id, {
+            "type": "phase_change",
+            "phase": body.phase,
+            "label": body.phase.replace('_', ' ').title(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
 
-    if body.phase == "handed_to_carrier":
-        background_tasks.add_task(_generate_etas_with_ai, shipment)
+        if body.phase == "handed_to_carrier":
+            background_tasks.add_task(_generate_etas_with_ai, shipment)
 
-    return {"phase": body.phase}
+        return {"phase": body.phase}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Tracking] Error transitioning phase: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def _generate_etas_with_ai(shipment: dict) -> None:

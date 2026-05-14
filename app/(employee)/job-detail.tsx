@@ -415,7 +415,7 @@ export default function JobDetailScreen() {
             const rawDetail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
             const msg = Array.isArray(rawDetail)
               ? (rawDetail as { msg?: string }[]).map(d => d?.msg ?? String(d)).join(', ')
-              : (typeof rawDetail === 'string' ? rawDetail : 'Failed to update. Try again.');
+              : (typeof rawDetail === 'string' ? rawDetail : (rawDetail ? JSON.stringify(rawDetail) : 'Failed to update. Try again.'));
             Alert.alert('Error', msg);
           } finally {
             setTransitioning(false);
