@@ -9,6 +9,7 @@ import {
   Alert,
   Animated,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as Location from 'expo-location';
 import { Colors } from '@/constants/colors';
@@ -443,7 +444,7 @@ export default function JobDetailScreen() {
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-          <Text style={styles.backLinkText}>← Go Back</Text>
+          <Text style={styles.backLinkText}><Ionicons name="arrow-back" size={15} color={Colors.primary} /> Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -655,7 +656,7 @@ export default function JobDetailScreen() {
             <Text style={styles.routeCityLabel}>FROM</Text>
             <Text style={styles.routeCityName}>{shipment.origin}</Text>
           </View>
-          <Text style={styles.routeArrow}>→</Text>
+          <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
           <View style={[styles.routeCity, styles.routeCityRight]}>
             <Text style={styles.routeCityLabel}>TO</Text>
             <Text style={styles.routeCityName}>{shipment.destination}</Text>

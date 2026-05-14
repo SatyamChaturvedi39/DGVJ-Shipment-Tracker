@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -59,7 +60,7 @@ export default function VerifyScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       {/* Back */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <Text style={styles.backText}>←  Back</Text>
+        <Text style={styles.backText}><Ionicons name="arrow-back" size={18} color={Colors.primary} /> Back</Text>
       </TouchableOpacity>
 
       <View style={styles.container}>

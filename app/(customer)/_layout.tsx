@@ -1,8 +1,9 @@
-import { Tabs, Redirect } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Tabs, Redirect, router } from 'expo-router';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Ionicons } from '@expo/vector-icons';
 
 function CustomerName({ name }: { name: string }) {
   return (
@@ -59,6 +60,14 @@ export default function CustomerLayout() {
           title: 'Track Shipment',
           href: null,
           tabBarStyle: { display: 'none' },
+          headerLeft: () => (
+            <TouchableOpacity 
+              style={{ marginLeft: 16, padding: 8 }}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          ),
         }}
       />
     </Tabs>

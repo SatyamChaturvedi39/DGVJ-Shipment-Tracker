@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { createShipment, getEmployees, getCustomers } from '@/services/api';
@@ -315,7 +316,7 @@ export default function CreateShipment() {
     if (successTrackingId) {
       successTimer.current = setTimeout(() => {
         router.replace('/(admin)/dashboard');
-      }, 2000);
+      }, 1500);
     }
     return () => {
       if (successTimer.current) clearTimeout(successTimer.current);
@@ -552,7 +553,7 @@ export default function CreateShipment() {
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitBtnText}>Create Shipment  →</Text>
+            <Text style={styles.submitBtnText}>Create Shipment  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" /></Text>
           )}
         </TouchableOpacity>
       </ScrollView>

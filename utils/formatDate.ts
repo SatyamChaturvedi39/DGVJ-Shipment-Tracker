@@ -33,6 +33,7 @@ export function formatEventDate(timestamp: string | null | undefined): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
   });
 }
 
@@ -48,6 +49,7 @@ export function formatFullDate(timestamp: string | null | undefined): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
   });
 }
 
@@ -81,7 +83,7 @@ export function formatETA(etaDate: string | null | undefined, etaTime?: string |
     year: 'numeric',
   });
   if (hasTime) {
-    const timePart = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const timePart = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
     return `${datePart}  ·  ${timePart}`;
   }
   return datePart;

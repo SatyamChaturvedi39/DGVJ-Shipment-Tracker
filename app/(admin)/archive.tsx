@@ -10,6 +10,7 @@ import {
   RefreshControl,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { getShipments } from '@/services/api';
@@ -40,7 +41,9 @@ function ShipmentCard({ item }: { item: Shipment }) {
           </View>
         </View>
         <Text style={styles.route} numberOfLines={1}>
-          {item.origin}  →  {item.destination}
+          <Text style={styles.routeCity}>{item.origin}</Text>
+          <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
+          <Text style={styles.routeCity}>{item.destination}</Text>
         </Text>
         <Text style={styles.completedDate}>{formatFullDate(item.completed_at)}</Text>
       </View>

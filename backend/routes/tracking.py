@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from dependencies import get_current_user, require_role
 from database import supabase
 from models.shipment import PhaseTransitionRequest, AddStatusEventRequest, LocationUpdateRequest
@@ -54,6 +54,7 @@ def sync_events_to_phase(shipment_id: str, new_phase: str) -> None:
 async def transition_phase(
     shipment_id: str,
     body: PhaseTransitionRequest,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(require_role("admin", "employee")),
 ):
     result = supabase.table("shipments").select("*").eq("id", shipment_id).execute()
@@ -63,8 +64,6 @@ async def transition_phase(
     shipment = result.data[0]
 
     # ── Employee authorization ─────────────────────────────────────────────────
-    # Admins bypass all of this and can set any phase.
-    # Employees are constrained to their assigned role and allowed transitions.
     if user["role"] == "employee":
         uid = user["id"]
         current_phase = shipment.get("current_phase")
@@ -79,7 +78,6 @@ async def transition_phase(
             raise HTTPException(status_code=403, detail="You are not assigned to this shipment")
 
         if body.phase == "pickup":
-            # Undo pickup: pickup driver only, and only from transit
             if not is_pickup:
                 raise HTTPException(status_code=403, detail="Only the pickup driver can undo a pickup")
             if current_phase != "transit":
@@ -98,15 +96,12 @@ async def transition_phase(
     if body.phase == "completed":
         updates["completed_at"] = datetime.now(timezone.utc).isoformat()
     elif shipment.get("completed_at"):
-        # Going backward from completed — clear the completion timestamp
         updates["completed_at"] = None
 
     supabase.table("shipments").update(updates).eq("id", shipment_id).execute()
 
-    # Sync all initial status events to match the new phase (handles backward transitions)
     sync_events_to_phase(shipment_id, body.phase)
 
-    # Broadcast phase change via WebSocket
     await manager.broadcast(shipment_id, {
         "type": "phase_change",
         "phase": body.phase,
@@ -114,10 +109,8 @@ async def transition_phase(
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
-    # If phase is handed_to_carrier, use Groq to estimate future ETAs based on distance
     if body.phase == "handed_to_carrier":
-        import asyncio
-        asyncio.create_task(_generate_etas_with_ai(shipment))
+        background_tasks.add_task(_generate_etas_with_ai, shipment)
 
     return {"phase": body.phase}
 

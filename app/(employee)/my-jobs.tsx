@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
@@ -72,7 +73,9 @@ function JobCard({
       </View>
 
       <Text style={styles.route}>
-        {shipment.origin}  →  {shipment.destination}
+        <Text style={styles.routeCity}>{shipment.origin}</Text>
+        <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
+        <Text style={styles.routeCity}>{shipment.destination}</Text>
       </Text>
 
       <View style={styles.cardBottom}>

@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   Animated,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import { Colors } from '@/constants/colors';
@@ -276,16 +278,16 @@ function TimelineItem({ event, isLast }: { event: StatusEvent; isLast: boolean }
 
 const tl = StyleSheet.create({
   row:         { flexDirection: 'row', marginBottom: 0 },
-  left:        { width: 32, alignItems: 'center' },
-  dot:         { width: 22, height: 22, borderRadius: 11, marginTop: 1, justifyContent: 'center', alignItems: 'center' },
+  left:        { width: 40, alignItems: 'center' },
+  dot:         { width: 24, height: 24, borderRadius: 12, marginTop: 2, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
   dotDone:     { backgroundColor: Colors.success },
   dotCurrent:  { backgroundColor: Colors.primary },
-  dotPending:  { backgroundColor: Colors.border, borderWidth: 2, borderColor: Colors.textMuted },
-  dotCheck:    { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
-  line:        { flex: 1, width: 2, marginVertical: 3 },
+  dotPending:  { backgroundColor: Colors.border, borderWidth: 2, borderColor: 'rgba(0,0,0,0.1)' },
+  dotCheck:    { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  line:        { flex: 1, width: 3, marginVertical: 4, borderRadius: 1.5 },
   lineDone:    { backgroundColor: Colors.success },
-  linePending: { backgroundColor: Colors.border },
-  content:     { flex: 1, paddingBottom: 20, paddingLeft: 10 },
+  linePending: { backgroundColor: 'rgba(0,0,0,0.08)' },
+  content:     { flex: 1, paddingBottom: 28, paddingLeft: 12 },
   label:       { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   labelPending:{ color: Colors.textSecondary },
   desc:        { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
@@ -587,7 +589,7 @@ function TransitSection({ shipment }: { shipment: ShipmentDetail }) {
         <Text style={styles.transitNumber}>{shipment.transport_number}</Text>
         <View style={styles.transitRoute}>
           <Text style={styles.transitCity}>{shipment.origin}</Text>
-          <Text style={styles.transitArrow}> → </Text>
+          <Ionicons name="arrow-forward" size={18} color={Colors.primary} style={{ marginHorizontal: 12 }} />
           <Text style={styles.transitCity}>{shipment.destination}</Text>
         </View>
         <Text style={styles.transitMode}>In transit via {modeLabel}</Text>
@@ -703,9 +705,9 @@ export default function ShipmentTrackingScreen() {
         <TouchableOpacity style={styles.retryBtn} onPress={load}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-          <Text style={styles.backLinkText}>← Go Back</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
+            <Text style={styles.backLinkText}><Ionicons name="arrow-back" size={16} color={Colors.primary} /> Go Back</Text>
+          </TouchableOpacity>
       </View>
     );
   }
@@ -888,45 +890,48 @@ const styles = StyleSheet.create({
   // ETA card
   etaCard: {
     backgroundColor: Colors.surfaceElevated,
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 14,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
   },
   etaCardLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 6,
+    letterSpacing: 1.2,
+    marginBottom: 8,
   },
   etaCardDate: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
     color: Colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   etaCardTime: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
   etaCardDelayed: {
-    borderWidth: 1.5,
-    borderColor: Colors.warning,
-    backgroundColor: '#FFFDE7',
+    borderWidth: 2,
+    borderColor: Colors.error,
+    backgroundColor: '#FFF5F5',
   },
   etaDelayNote: {
-    fontSize: 12,
-    color: Colors.warning,
-    fontWeight: '600',
-    marginTop: 6,
+    fontSize: 13,
+    color: Colors.error,
+    fontWeight: '700',
+    marginTop: 10,
+    textAlign: 'center',
   },
 
   // Delivered card
@@ -961,27 +966,27 @@ const styles = StyleSheet.create({
   },
 
   // Section wrapper
-  section: { marginBottom: 14 },
+  section: { marginBottom: 24 },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.textPrimary,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    paddingHorizontal: 2,
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   sectionCard: {
     backgroundColor: Colors.surfaceElevated,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(0,0,0,0.05)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   // Expandable details
@@ -1065,35 +1070,39 @@ const styles = StyleSheet.create({
   // Transit card
   transitCard: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 20,
   },
-  transitIcon: { fontSize: 56, marginBottom: 10 },
+  transitIcon: { fontSize: 64, marginBottom: 16 },
   transitNumber: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '900',
+    color: Colors.primary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    marginBottom: 10,
-    letterSpacing: 1,
+    marginBottom: 12,
+    letterSpacing: 2,
   },
   transitRoute: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   transitCity: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
   transitArrow: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.textSecondary,
   },
   transitMode: {
-    fontSize: 12,
+    fontSize: 14,
     color: Colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   // Admin notes (side notes from Digvijay Express)

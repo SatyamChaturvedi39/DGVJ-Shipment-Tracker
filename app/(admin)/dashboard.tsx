@@ -7,7 +7,9 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PHASE_CONFIG, PHASE_BORDER } from '@/constants/phases';
@@ -56,7 +58,9 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
       </View>
 
       <Text style={styles.route}>
-        {shipment.origin}  →  {shipment.destination}
+        <Text style={styles.routeCity}>{shipment.origin}</Text>
+        <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
+        <Text style={styles.routeCity}>{shipment.destination}</Text>
       </Text>
 
       <View style={styles.cardBottom}>
@@ -291,18 +295,18 @@ const styles = StyleSheet.create({
 
   // Shipment card
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8E8E8',
-    borderLeftWidth: 4,
+    borderColor: 'rgba(0,0,0,0.03)',
+    borderLeftWidth: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardTop: {
     flexDirection: 'row',
@@ -328,17 +332,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   transportChip: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   transportChipText: {
     fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
+    color: Colors.textPrimary,
+    fontWeight: '600',
   },
   eta: {
     fontSize: 12,
