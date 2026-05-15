@@ -13,6 +13,8 @@ export const Colors = {
   error: '#C62828',
   border: '#E0E0E0',
   darkHeader: '#1A1A2E',
+  slate: '#475569',
+  slateDark: '#1E293B',
   // Aliases used across components
   textMuted: '#757575',
   inputBg: '#F5F5F5',

@@ -40,7 +40,6 @@ __pycache__/
 backend/.venv/
 backend/venv/
 backend/.env
-backend/firebase-service-account.json
 
 # typescript
 *.tsbuildinfo
@@ -49,12 +48,17 @@ backend/firebase-service-account.json
 /ios
 /android
 
-# Claude / internal docs (not for public repo)
-CLAUDE.md
-MANUAL_TESTING.md
-PROJECT_DOCS.md
-DEV_GUIDE.md
-.claude/
+# Project Docs (Private)
+*.md
+!README.md
+*.sql
 
-# Build artifacts
+# Note: package.json, app.json, eas.json, and tsconfig.json 
+# ARE REQUIRED for building the app and must remain in Git.
+
+# IDE & Tools
+.claude/
+.gemini/
+artifacts/
+scratch/
 build_log.txt

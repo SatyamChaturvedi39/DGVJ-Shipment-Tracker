@@ -1,5 +1,6 @@
 import { Tabs, Redirect, useRouter } from 'expo-router';
-import { Text, TouchableOpacity, Alert } from 'react-native';
+import { Text, TouchableOpacity, Alert, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -34,32 +35,32 @@ export default function AdminLayout() {
         tabBarStyle: {
           backgroundColor: Colors.surfaceElevated,
           borderTopColor: Colors.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
+          height: 65,
+          paddingBottom: 10,
+          paddingTop: 8,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#9783;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="grid-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen
         name="create-shipment"
         options={{
-          title: 'New Shipment',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>+</Text>,
+          title: 'New',
+          tabBarIcon: ({ color }) => <Ionicons name="add-circle-outline" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
         name="archive"
         options={{
           title: 'Archive',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>&#9776;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="archive-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -67,21 +68,25 @@ export default function AdminLayout() {
         options={{
           title: 'Team',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>&#128101;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#128100;</Text>,
+          title: 'Account',
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={25} color={color} />,
         }}
       />
       <Tabs.Screen
         name="ai-assistant"
         options={{
           title: 'AI',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>&#10024;</Text>,
+          tabBarIcon: ({ color }) => (
+            <View>
+              <Ionicons name="sparkles" size={24} color={color} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen

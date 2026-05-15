@@ -718,7 +718,16 @@ export default function ShipmentTrackingScreen() {
   const isCompleted = phase === 'completed';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      <View style={styles.topNav}>
+        <TouchableOpacity style={styles.navBack} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Tracking Details</Text>
+        <View style={{ width: 44 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
 
       {/* ── Section 1: Dark header card ───────────────────────────────── */}
       <View style={styles.headerCard}>
@@ -824,6 +833,7 @@ export default function ShipmentTrackingScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </View>
   );
 }
 
@@ -833,6 +843,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.surface,
+  },
+  topNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 50 : 10,
+    paddingHorizontal: 8,
+    paddingBottom: 10,
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  navBack: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
   },
   content: {
     padding: 16,

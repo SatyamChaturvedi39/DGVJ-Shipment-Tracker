@@ -10,7 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { getShipments } from '@/services/api';
 import { formatETA } from '@/utils/formatDate';
@@ -127,7 +127,13 @@ export default function MyShipments() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load(true);
+      const interval = setInterval(() => load(true), 30000);
+      return () => clearInterval(interval);
+    }, [load])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

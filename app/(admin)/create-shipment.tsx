@@ -289,6 +289,7 @@ export default function CreateShipment() {
   const [transportNumber, setTransportNumber] = useState('');
   const [etaDate, setEtaDate] = useState('');
   const [etaTime, setEtaTime] = useState('');
+  const [isPm, setIsPm] = useState(false);
   const [pickupEmployeeId, setPickupEmployeeId] = useState<string | null>(null);
   const [deliveryEmployeeId, setDeliveryEmployeeId] = useState<string | null>(null);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
@@ -349,9 +350,28 @@ export default function CreateShipment() {
   // Store time as HH:MM, auto-insert colon
   const handleTimeInput = (raw: string) => {
     const digits = raw.replace(/\D/g, '').slice(0, 4);
-    const formatted = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+    let formatted = digits;
+    if (digits.length > 2) {
+      const hh = parseInt(digits.slice(0, 2), 10);
+      const mm = parseInt(digits.slice(2), 10);
+      // Basic 12h validation on the fly
+      const validH = Math.min(Math.max(hh, 1), 12);
+      const validM = Math.min(Math.max(mm, 0), 59);
+      formatted = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
+    }
     setEtaTime(formatted);
     if (errors.eta_time) setErrors(prev => ({ ...prev, eta_time: undefined }));
+  };
+
+  // Convert 12h HH:MM + AM/PM -> 24h HH:MM
+  const parseTimeForBackend = (t: string, pm: boolean): string | undefined => {
+    if (!t) return undefined;
+    const [h, m] = t.split(':').map(x => parseInt(x, 10));
+    if (isNaN(h) || isNaN(m)) return undefined;
+    let hh = h;
+    if (pm && hh < 12) hh += 12;
+    if (!pm && hh === 12) hh = 0;
+    return `${hh.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
   // Convert DD/MM/YYYY → YYYY-MM-DD for backend
@@ -391,7 +411,7 @@ export default function CreateShipment() {
         transport_mode: transportMode,
         transport_number: transportNumber.trim(),
         eta_date: parseDateForBackend(etaDate),
-        eta_time: etaTime.trim() || undefined,
+        eta_time: parseTimeForBackend(etaTime, isPm),
         pickup_employee_id: pickupEmployeeId ?? undefined,
         delivery_employee_id: deliveryEmployeeId ?? undefined,
         notes: notes.trim() || undefined,
@@ -497,15 +517,23 @@ export default function CreateShipment() {
         </View>
         <View style={styles.fieldWrap}>
           <FieldLabel>ETA Time (optional)</FieldLabel>
-          <TextInput
-            style={[styles.textInput, errors.eta_time ? styles.textInputError : undefined]}
-            value={etaTime}
-            onChangeText={handleTimeInput}
-            placeholder="HH:MM  (24-hour)"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="number-pad"
-            maxLength={5}
-          />
+          <View style={styles.timeRow}>
+            <TextInput
+              style={[styles.textInput, { flex: 1 }, errors.eta_time ? styles.textInputError : undefined]}
+              value={etaTime}
+              onChangeText={handleTimeInput}
+              placeholder="HH:MM"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={5}
+            />
+            <TouchableOpacity
+              style={[styles.ampmBtn, isPm && styles.ampmBtnActive]}
+              onPress={() => setIsPm(!isPm)}
+            >
+              <Text style={[styles.ampmText, isPm && styles.ampmTextActive]}>{isPm ? 'PM' : 'AM'}</Text>
+            </TouchableOpacity>
+          </View>
           {errors.eta_time ? <Text style={styles.fieldError}>{errors.eta_time}</Text> : null}
         </View>
 
@@ -553,7 +581,7 @@ export default function CreateShipment() {
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitBtnText}>Create Shipment  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" /></Text>
+            <Text style={styles.submitBtnText}>Create Shipment  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" /></Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -658,6 +686,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.error,
     marginTop: 4,
+    fontWeight: '500',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ampmBtn: {
+    width: 60,
+    height: 52,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ampmBtnActive: {
+    backgroundColor: Colors.slate,
+    borderColor: Colors.slate,
+  },
+  ampmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  ampmTextActive: {
+    color: '#FFFFFF',
   },
 
   // Dropdown

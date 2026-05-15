@@ -1,5 +1,6 @@
 import { Tabs, Redirect, useRouter } from 'expo-router';
 import { Text, View, TouchableOpacity, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -29,11 +30,11 @@ export default function EmployeeLayout() {
         tabBarStyle: {
           backgroundColor: Colors.surfaceElevated,
           borderTopColor: Colors.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
+          height: 65,
+          paddingBottom: 10,
+          paddingTop: 8,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
       }}
     >
       <Tabs.Screen
@@ -50,14 +51,14 @@ export default function EmployeeLayout() {
               </TouchableOpacity>
             </View>
           ),
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#9898;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="briefcase-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#128100;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen

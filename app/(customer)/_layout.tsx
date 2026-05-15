@@ -32,11 +32,11 @@ export default function CustomerLayout() {
         tabBarStyle: {
           backgroundColor: Colors.surfaceElevated,
           borderTopColor: Colors.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
+          height: 65,
+          paddingBottom: 10,
+          paddingTop: 8,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
       }}
     >
       <Tabs.Screen
@@ -44,14 +44,14 @@ export default function CustomerLayout() {
         options={{
           title: 'My Shipments',
           headerRight: () => <CustomerName name={user.name ?? 'Customer'} />,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#128230;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="cube-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>&#128100;</Text>,
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={26} color={color} />,
         }}
       />
       <Tabs.Screen

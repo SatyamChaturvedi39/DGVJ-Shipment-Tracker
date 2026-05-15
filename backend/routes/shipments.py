@@ -117,6 +117,15 @@ def get_shipment(shipment_id: str, user: dict = Depends(get_current_user)):
         {**e, "timestamp": e["created_at"]} for e in events.data
     ]
 
+    # Attach associated customer IDs
+    perms = (
+        supabase.table("shipment_permissions")
+        .select("customer_user_id")
+        .eq("shipment_id", shipment_id)
+        .execute()
+    )
+    shipment["customer_ids"] = [p["customer_user_id"] for p in perms.data]
+
     return shipment
 
 

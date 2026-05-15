@@ -4,7 +4,6 @@ from typing import Optional, Literal
 
 class UserResponse(BaseModel):
     id: str
-    firebase_uid: Optional[str] = None
     phone: str
     name: Optional[str] = None
     role: Literal["admin", "employee", "customer"]

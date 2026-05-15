@@ -10,7 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PHASE_CONFIG, PHASE_BORDER } from '@/constants/phases';
 import { getShipments } from '@/services/api';
@@ -59,7 +59,7 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
 
       <Text style={styles.route}>
         <Text style={styles.routeCity}>{shipment.origin}</Text>
-        <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
+        <Ionicons name="arrow-forward" size={18} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
         <Text style={styles.routeCity}>{shipment.destination}</Text>
       </Text>
 
@@ -99,7 +99,13 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load(true);
+      const interval = setInterval(() => load(true), 20000);
+      return () => clearInterval(interval);
+    }, [load])
+  );
 
   const today = new Date().toISOString().slice(0, 10);
   const active      = shipments.filter(s => s.current_phase !== 'completed');
@@ -325,6 +331,13 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontWeight: '500',
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeCity: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   cardBottom: {
     flexDirection: 'row',

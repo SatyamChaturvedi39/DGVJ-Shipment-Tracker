@@ -218,6 +218,8 @@ export default function JobDetailScreen() {
   const { user } = useAuth();
 
   const [shipment, setShipment] = useState<ShipmentDetail | null>(null);
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [customerMap, setCustomerMap] = useState<Record<string, string>>({});
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -234,7 +236,10 @@ export default function JobDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      setShipment(await getShipment(id));
+      const [detail, emps, custs] = await Promise.all([getShipment(id), getEmployees(), getCustomers()]);
+      setShipment(detail);
+      setEmployees(emps);
+      setCustomerMap(Object.fromEntries(custs.map(c => [c.id, c.name ?? c.phone])));
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
         ?? (e instanceof Error ? e.message : 'Unknown error');
@@ -294,6 +299,11 @@ export default function JobDetailScreen() {
   const isPickupEmployee  = Config.DEV_MOCK_AUTH || employeeRole === 'pickup';
   const isDeliveryEmployee = Config.DEV_MOCK_AUTH || employeeRole === 'delivery';
 
+  const employeeName = (empId: string | null): string => {
+    if (!empId) return '—';
+    return employees.find(e => e.id === empId)?.name ?? empId;
+  };
+
   // GPS is active for pickup driver (pickup + transit phases) and delivery driver (out_for_delivery)
   const phase = shipment?.current_phase;
   const showGps = shipment !== null && (
@@ -318,6 +328,12 @@ export default function JobDetailScreen() {
   // ── GPS handlers ─────────────────────────────────────────────────────────────
 
   const startTracking = async () => {
+    const enabled = await Location.hasServicesEnabledAsync();
+    if (!enabled) {
+      Alert.alert('Location Disabled', 'Please turn on your GPS/location services to start tracking.');
+      return;
+    }
+
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== 'granted') {
       Alert.alert('Location Required', 'Enable location permission to share your position.');
@@ -380,6 +396,26 @@ export default function JobDetailScreen() {
     setTracking(false);
     setCurrentCoords(null);
   };
+
+  // ── Location Services Monitor ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!tracking) return;
+
+    const checkSvc = async () => {
+      const enabled = await Location.hasServicesEnabledAsync();
+      if (!enabled) {
+        Alert.alert(
+          'Location Disabled',
+          'Your mobile location services are turned off. Please enable them to continue sharing your live location with the customer.',
+          [{ text: 'OK' }]
+        );
+        stopTracking();
+      }
+    };
+
+    const interval = setInterval(checkSvc, 5000);
+    return () => clearInterval(interval);
+  }, [tracking]);
 
   // ── Phase transition helpers ──────────────────────────────────────────────────
 
@@ -636,6 +672,47 @@ export default function JobDetailScreen() {
         </View>
       )}
 
+      {/* ── Route ─────────────────────────────────────────────────── */}
+      <Section title="Route">
+        <View style={styles.routeRow}>
+          <View style={styles.cityBox}>
+            <Text style={styles.cityLabel}>FROM</Text>
+            <Text style={styles.cityName}>{shipment.origin}</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 12 }} />
+          <View style={[styles.cityBox, { alignItems: 'flex-end' }]}>
+            <Text style={styles.cityLabel}>TO</Text>
+            <Text style={styles.cityName}>{shipment.destination}</Text>
+          </View>
+        </View>
+        <View style={styles.divider} />
+        <InfoRow label="Transport #" value={shipment.transport_number} />
+        <InfoRow label="ETA" value={shipment.eta_date ? formatETA(shipment.eta_date, shipment.eta_time) : null} />
+      </Section>
+
+      {/* ── Personnel & Customers ── */}
+      <Section title="Personnel & Tracking">
+        <InfoRow label="Pickup Driver" value={employeeName(shipment.pickup_employee_id)} />
+        <InfoRow label="Delivery Driver" value={employeeName(shipment.delivery_employee_id)} />
+        <View style={styles.divider} />
+        <Text style={styles.customerHeader}>Authorized Customers:</Text>
+        {shipment.customer_ids && shipment.customer_ids.length > 0 ? (
+          shipment.customer_ids.map(cid => (
+            <Text key={cid} style={styles.customerName}>• {customerMap[cid] ?? cid}</Text>
+          ))
+        ) : (
+          <Text style={styles.noData}>No customers associated</Text>
+        )}
+      </Section>
+
+      {/* ── Goods ─────────────────────────────────────────────────── */}
+      {(shipment.goods_description || shipment.notes) && (
+        <Section title="Goods">
+          {shipment.goods_description && <InfoRow label="Description" value={shipment.goods_description} />}
+          {shipment.notes && <InfoRow label="Internal Notes" value={shipment.notes} />}
+        </Section>
+      )}
+
       {/* ── Waiting for carrier (delivery driver, handed_to_carrier phase) */}
       {!isCompleted && !action && shipment.current_phase === 'handed_to_carrier' && !isDeliveryEmployee && (
         <View style={styles.waitCard}>
@@ -648,34 +725,6 @@ export default function JobDetailScreen() {
           </View>
         </View>
       )}
-
-      {/* ── Route ────────────────────────────────────────────────────── */}
-      <Section title="Route">
-        <View style={styles.routeRow}>
-          <View style={styles.routeCity}>
-            <Text style={styles.routeCityLabel}>FROM</Text>
-            <Text style={styles.routeCityName}>{shipment.origin}</Text>
-          </View>
-          <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
-          <View style={[styles.routeCity, styles.routeCityRight]}>
-            <Text style={styles.routeCityLabel}>TO</Text>
-            <Text style={styles.routeCityName}>{shipment.destination}</Text>
-          </View>
-        </View>
-        <View style={styles.divider} />
-        <InfoRow label={`${transportIcon} ${shipment.transport_mode === 'air' ? 'Flight' : 'Train'}`} value={shipment.transport_number} />
-        {shipment.eta_date ? (
-          <InfoRow label="ETA" value={formatETA(shipment.eta_date, shipment.eta_time)} />
-        ) : null}
-      </Section>
-
-      {/* ── Goods ────────────────────────────────────────────────────── */}
-      {shipment.goods_description ? (
-        <Section title="Goods">
-          <InfoRow label="Description" value={shipment.goods_description} />
-          {shipment.notes ? <InfoRow label="Notes" value={shipment.notes} /> : null}
-        </Section>
-      ) : null}
 
       {/* ── Status timeline ──────────────────────────────────────────── */}
       {shipment.status_events?.length > 0 && (
@@ -717,6 +766,10 @@ const styles = StyleSheet.create({
   errorText:    { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginBottom: 16 },
   retryBtn:     { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginBottom: 12 },
   retryText:    { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  divider:      { height: 1, backgroundColor: Colors.border, marginVertical: 14 },
+  customerHeader: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', marginBottom: 8 },
+  customerName:   { fontSize: 14, color: Colors.textPrimary, fontWeight: '500', marginBottom: 4 },
+  noData:         { fontSize: 13, color: Colors.textMuted, fontStyle: 'italic' },
   backLink:     { paddingVertical: 8 },
   backLinkText: { color: Colors.primary, fontSize: 15, fontWeight: '600' },
 

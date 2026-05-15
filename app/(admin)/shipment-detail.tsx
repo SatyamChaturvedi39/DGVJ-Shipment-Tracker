@@ -168,7 +168,12 @@ const tl = StyleSheet.create({
   labelDone: { color: Colors.textPrimary },
   labelPending: { color: Colors.textSecondary },
   desc: { fontSize: 13, color: Colors.textSecondary, marginTop: 2, lineHeight: 18 },
-  time: { fontSize: 11, color: Colors.textMuted, marginTop: 4 },
+  adminNoteTime: { fontSize: 11, color: Colors.textMuted, marginTop: 4 },
+  customerList: { paddingVertical: 4 },
+  customerItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  customerBullet: { fontSize: 16, color: Colors.primary, marginRight: 8, fontWeight: '700' },
+  customerName: { fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
+  noData: { fontSize: 13, color: Colors.textMuted, fontStyle: 'italic', paddingVertical: 4 },
 });
 
 // ─── Add status event modal ───────────────────────────────────────────────────
@@ -564,6 +569,28 @@ export default function ShipmentDetailScreen() {
             {shipment.notes && <InfoRow label="Notes" value={shipment.notes} />}
           </Section>
         )}
+
+        {/* ── Personnel ── */}
+        <Section title="Personnel">
+          <InfoRow label="Pickup Driver" value={employeeName(shipment.pickup_employee_id)} />
+          <InfoRow label="Delivery Driver" value={employeeName(shipment.delivery_employee_id)} />
+        </Section>
+
+        {/* ── Customers ── */}
+        <Section title="Associated Customers">
+          {shipment.customer_ids && shipment.customer_ids.length > 0 ? (
+            <View style={styles.customerList}>
+              {shipment.customer_ids.map(cid => (
+                <View key={cid} style={styles.customerItem}>
+                  <Text style={styles.customerBullet}>•</Text>
+                  <Text style={styles.customerName}>{customerMap[cid] ?? cid}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.noData}>No customers associated</Text>
+          )}
+        </Section>
 
         {/* ── Status timeline (system events, sort_order 1–6) ──── */}
         {(() => {
