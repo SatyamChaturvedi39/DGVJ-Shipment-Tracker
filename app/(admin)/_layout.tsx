@@ -78,7 +78,6 @@ export default function AdminLayout() {
         name="team"
         options={{
           title: 'Team',
-          headerShown: false,
           tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={30} color={color} />,
         }}
       />
@@ -93,7 +92,6 @@ export default function AdminLayout() {
         name="ai-assistant"
         options={{
           title: 'Digi AI',
-          headerShown: false,
           tabBarIcon: ({ color }) => (
             <View>
               <Ionicons name="sparkles" size={26} color={color} />

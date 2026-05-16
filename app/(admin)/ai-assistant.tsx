@@ -158,36 +158,12 @@ export default function AIAssistantScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <View style={s.flex}>
       <StatusBar barStyle="light-content" />
       <KeyboardAvoidingView
         style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={s.header}>
-          <View style={s.headerLeft}>
-            <View style={s.headerAvatar}>
-              <Ionicons name="sparkles" size={20} color="#FFF" />
-            </View>
-            <View>
-              <Text style={s.headerName}>Digi AI</Text>
-              <View style={s.headerStatusRow}>
-                <View style={s.onlineDot} />
-                <Text style={s.headerSub}>Active · Llama 3.3 Core</Text>
-              </View>
-            </View>
-          </View>
-          <View style={s.headerRight}>
-            {messages.length > 0 && (
-              <TouchableOpacity onPress={clearChat} style={s.headerBtn}>
-                <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={handleLogout} style={[s.headerBtn, s.signOutBtn]}>
-              <Text style={s.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Chat area */}
         {messages.length === 0 ? (
@@ -277,7 +253,7 @@ export default function AIAssistantScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -42,8 +42,7 @@ export default function CustomerLayout() {
       <Tabs.Screen
         name="my-shipments"
         options={{
-          title: 'My Shipments',
-          headerRight: () => <CustomerName name={user.name ?? 'Customer'} />,
+          headerShown: false,
           tabBarIcon: ({ color }) => <Ionicons name="cube-outline" size={26} color={color} />,
         }}
       />

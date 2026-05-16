@@ -42,7 +42,7 @@ export default function LoginScreen() {
     getRememberedPhone().then(saved => {
       if (saved) setPhone(saved.replace('+91', ''));
     });
-    
+
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true })
@@ -113,7 +113,7 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             scrollEnabled={false}
           >
-            <Text style={styles.cardTitle}>Welcome Back</Text>
+            <Text style={styles.cardTitle}>Welcome</Text>
             <Text style={styles.cardSubtitle}>Sign in to track and manage shipments</Text>
 
             {/* Auth error banner */}
@@ -227,7 +227,7 @@ export default function LoginScreen() {
             </View>
             <ScrollView style={styles.modalBody}>
               <Text style={styles.modalText}>
-                {modalType === 'tos' 
+                {modalType === 'tos'
                   ? "1. Acceptance of Terms\nBy accessing and using this application, you accept and agree to be bound by the terms and provision of this agreement.\n\n2. Service Usage\nThis app is strictly for authorized employees and customers of Digvijay Express. Unauthorized access, sharing of PINs, or reverse engineering is prohibited.\n\n3. Location Tracking\nDrivers agree to share their real-time location data while a shipment is in an active delivery phase (transit/out for delivery) to ensure transparency with customers.\n\n4. Liability\nDigvijay Express is not liable for indirect damages or delivery delays outside of our control.\n\n5. Modifications\nWe reserve the right to modify these terms at any time without prior notice."
                   : "1. Data Collection\nWe collect your phone number solely for authentication purposes. If you are an employee, we also collect real-time background location data while a shipment is active.\n\n2. Data Usage\nYour location data is strictly used to provide ETA and live-tracking to the specific customer expecting the delivery. Phone numbers are never sold or used for marketing.\n\n3. Data Protection\nWe implement standard cryptographic security measures (such as JWT tokens and bcrypt hashing for PINs) to maintain the safety of your personal information.\n\n4. Data Deletion\nYou can contact your admin to have your profile and historical data permanently deleted from our servers."}
               </Text>

@@ -15,12 +15,12 @@ import * as Location from 'expo-location';
 import { Colors } from '@/constants/colors';
 import { Config } from '@/constants/config';
 import { PHASE_CONFIG, PHASE_ORDER as PHASE_STEPS } from '@/constants/phases';
-import { getShipment, transitionPhase, updateLocation } from '@/services/api';
+import { getShipment, transitionPhase, updateLocation, getEmployees, getCustomers } from '@/services/api';
 import { getIdToken } from '@/services/auth';
 import { useAuth } from '@/hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LOCATION_TASK_NAME } from '@/app/_layout';
-import type { ShipmentDetail, StatusEvent, ShipmentPhase } from '@/types';
+import type { ShipmentDetail, StatusEvent, ShipmentPhase, User } from '@/types';
 import { formatEventDate, formatETA, formatFullDate } from '@/utils/formatDate';
 
 function carrierName(mode: string) {
@@ -675,14 +675,14 @@ export default function JobDetailScreen() {
       {/* ── Route ─────────────────────────────────────────────────── */}
       <Section title="Route">
         <View style={styles.routeRow}>
-          <View style={styles.cityBox}>
-            <Text style={styles.cityLabel}>FROM</Text>
-            <Text style={styles.cityName}>{shipment.origin}</Text>
+          <View style={styles.routeCity}>
+            <Text style={styles.routeCityLabel}>FROM</Text>
+            <Text style={styles.routeCityName}>{shipment.origin}</Text>
           </View>
           <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 12 }} />
-          <View style={[styles.cityBox, { alignItems: 'flex-end' }]}>
-            <Text style={styles.cityLabel}>TO</Text>
-            <Text style={styles.cityName}>{shipment.destination}</Text>
+          <View style={[styles.routeCity, styles.routeCityRight]}>
+            <Text style={styles.routeCityLabel}>TO</Text>
+            <Text style={styles.routeCityName}>{shipment.destination}</Text>
           </View>
         </View>
         <View style={styles.divider} />
@@ -866,7 +866,6 @@ const styles = StyleSheet.create({
   routeCityLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, marginBottom: 4 },
   routeCityName:  { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   routeArrow:     { fontSize: 22, color: Colors.primary, paddingHorizontal: 12, fontWeight: '300' },
-  divider:        { height: 1, backgroundColor: Colors.border, marginBottom: 12 },
 
   // Info row
   infoRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6 },

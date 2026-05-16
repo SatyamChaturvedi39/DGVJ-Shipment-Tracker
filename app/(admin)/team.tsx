@@ -160,19 +160,9 @@ export default function TeamScreen() {
   const listData = activeTab === 'employees' ? employees : customers;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={styles.flex}>
       <StatusBar barStyle="light-content" />
       
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Operations Team</Text>
-          <Text style={styles.headerSub}>{employees.length + customers.length} Personnel Managed</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.tabContainer}>
         <View style={styles.tabBar}>
           <TouchableOpacity
@@ -326,7 +316,7 @@ export default function TeamScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -442,4 +432,3 @@ const EMPTY_ADD: AddModalState = {
 const EMPTY_ACTION: ActionSheetState = {
   visible: false, user: null, editing: false, editName: '', editCompany: '', resettingPin: false, newPin: '', pinError: '', submitting: false,
 };
-});

@@ -212,31 +212,6 @@ const styles = StyleSheet.create({
   footerNote: { fontSize: 11, color: '#94a3b8', fontWeight: '600' },
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    color: Colors.textPrimary,
-  },
-
-  // Empty state
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-  },
+  emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
+  emptyText: { fontSize: 14, color: '#94a3b8', fontWeight: '500' },
 });
