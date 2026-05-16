@@ -12,8 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -21,71 +23,391 @@ import { getAllUsers, createUser, updateUser, deleteUser } from '@/services/api'
 import { useAuth } from '@/hooks/useAuth';
 import type { User, UserRole } from '@/types';
 
-// ─── Avatar color ────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = ['#C62828', '#1565C0', '#2E7D32', '#6A1B9A', '#E65100', '#00838F'];
-
-function getAvatarColor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
 function RoleBadge({ role }: { role: UserRole }) {
   const style =
     role === 'employee'
-      ? { bg: '#E3F2FD', text: '#1565C0' }
-      : { bg: '#E8F5E9', text: '#2E7D32' };
+      ? { bg: '#e0f2fe', text: '#0369a1', icon: 'bus-outline' }
+      : { bg: '#f0fdf4', text: '#15803d', icon: 'business-outline' };
+  
   return (
     <View style={[badgeStyles.badge, { backgroundColor: style.bg }]}>
+      <Ionicons name={style.icon as any} size={10} color={style.text} style={{ marginRight: 4 }} />
       <Text style={[badgeStyles.label, { color: style.text }]}>
-        {role === 'employee' ? 'Employee' : 'Customer'}
+        {role === 'employee' ? 'Driver' : 'Client'}
       </Text>
     </View>
   );
 }
 
 const badgeStyles = StyleSheet.create({
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  label: { fontSize: 11, fontWeight: '700' },
+  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  label: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
 });
 
 function UserRow({ user, onPress }: { user: User; onPress: (u: User) => void }) {
-  const avatarColor = getAvatarColor(user.name ?? user.phone);
+  const initials = (user.name ?? '?')[0].toUpperCase();
+  
   return (
     <TouchableOpacity
-      style={[styles.row, !user.is_active && styles.rowInactive]}
+      style={[styles.card, !user.is_active && styles.cardInactive]}
       onPress={() => onPress(user)}
       activeOpacity={0.7}
     >
-      <View style={styles.rowLeft}>
-        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-          <Text style={styles.avatarText}>
-            {(user.name ?? '?')[0].toUpperCase()}
-          </Text>
+      <View style={styles.cardMain}>
+        <View style={styles.avatarContainer}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          {user.is_active && <View style={styles.onlineIndicator} />}
         </View>
-        <View style={styles.rowInfo}>
-          <Text style={styles.rowName}>{user.name ?? '—'}</Text>
-          <Text style={styles.rowPhone}>{user.phone}</Text>
-          {user.company_name ? (
-            <Text style={styles.rowCompany}>{user.company_name}</Text>
-          ) : null}
+        
+        <View style={styles.cardInfo}>
+          <Text style={styles.userName} numberOfLines={1}>{user.name ?? 'Unnamed User'}</Text>
+          <View style={styles.phoneRow}>
+            <Ionicons name="call-outline" size={12} color={Colors.textMuted} />
+            <Text style={styles.userPhone}>{user.phone}</Text>
+          </View>
+          {user.company_name && (
+            <View style={styles.companyRow}>
+              <Ionicons name="business-outline" size={12} color={Colors.textMuted} />
+              <Text style={styles.userCompany} numberOfLines={1}>{user.company_name}</Text>
+            </View>
+          )}
         </View>
-      </View>
-      <View style={styles.rowRight}>
-        <RoleBadge role={user.role} />
-        <View style={[styles.activeDot, { backgroundColor: user.is_active ? Colors.success : Colors.textMuted }]} />
-        <Text style={styles.chevron}>›</Text>
+
+        <View style={styles.cardRight}>
+          <RoleBadge role={user.role} />
+          <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
+        </View>
       </View>
     </TouchableOpacity>
   );
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
+export default function TeamScreen() {
+  const { logout } = useAuth();
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState<'employees' | 'customers'>('employees');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [addModal, setAddModal] = useState<AddModalState>(EMPTY_ADD);
+  const [actionSheet, setActionSheet] = useState<ActionSheetState>(EMPTY_ACTION);
+
+  const loadUsers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const all = await getAllUsers();
+      setEmployees(all.filter((u) => u.role === 'employee'));
+      setCustomers(all.filter((u) => u.role === 'customer'));
+    } catch {
+      // Error handled by state
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadUsers(true);
+  }, [loadUsers]);
+
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: logout },
+    ]);
+  };
+
+  const submitAdd = async () => {
+    const name = addModal.name.trim();
+    const phone = addModal.phone.trim();
+    const pin = addModal.pin.trim();
+    let nameError = '';
+    let phoneError = '';
+    let pinError = '';
+
+    if (!name) nameError = 'Name is required';
+    if (!/^\d{10}$/.test(phone)) phoneError = '10-digit number required';
+    if (pin && (!/^\d{4}$/.test(pin))) pinError = 'PIN must be 4 digits';
+
+    if (nameError || phoneError || pinError) {
+      setAddModal((s) => ({ ...s, nameError, phoneError, pinError }));
+      return;
+    }
+
+    setAddModal((s) => ({ ...s, submitting: true, apiError: '' }));
+    try {
+      await createUser({
+        name,
+        phone: `+91${phone}`,
+        role: addModal.role,
+        company_name: addModal.company.trim() || undefined,
+        pin: pin || undefined,
+      });
+      setAddModal(EMPTY_ADD);
+      loadUsers(true);
+    } catch (e: any) {
+      const detail: string = e?.response?.data?.detail ?? '';
+      const apiError = e?.response?.status === 409 ? 'Number already registered' : detail || 'Failed to add user';
+      setAddModal((s) => ({ ...s, submitting: false, apiError }));
+    }
+  };
+
+  const listData = activeTab === 'employees' ? employees : customers;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <StatusBar barStyle="light-content" />
+      
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Operations Team</Text>
+          <Text style={styles.headerSub}>{employees.length + customers.length} Personnel Managed</Text>
+        </View>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.tabContainer}>
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'employees' && styles.tabActive]}
+            onPress={() => setActiveTab('employees')}
+          >
+            <Ionicons name="bus" size={16} color={activeTab === 'employees' ? '#FFF' : '#64748b'} />
+            <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>Drivers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'customers' && styles.tabActive]}
+            onPress={() => setActiveTab('customers')}
+          >
+            <Ionicons name="business" size={16} color={activeTab === 'customers' ? '#FFF' : '#64748b'} />
+            <Text style={[styles.tabLabel, activeTab === 'customers' && styles.tabLabelActive]}>Clients</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.fab}
+          onPress={() => setAddModal({ ...EMPTY_ADD, visible: true, role: activeTab === 'employees' ? 'employee' : 'customer' })}
+        >
+          <Ionicons name="add" size={24} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={listData}
+          keyExtractor={(u) => u.id}
+          renderItem={({ item }) => <UserRow user={item} onPress={(u) => setActionSheet({ ...EMPTY_ACTION, visible: true, user: u, editName: u.name ?? '', editCompany: u.company_name ?? '' })} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Ionicons name="people-outline" size={60} color="#e2e8f0" />
+              <Text style={styles.emptyText}>No personnel found in this category</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Add Modal */}
+      <Modal visible={addModal.visible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.flex} onPress={() => setAddModal(EMPTY_ADD)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>Add New {addModal.role === 'employee' ? 'Driver' : 'Client'}</Text>
+              
+              {addModal.apiError ? <Text style={styles.errorText}>{addModal.apiError}</Text> : null}
+
+              <Input
+                label="Full Name"
+                value={addModal.name}
+                onChangeText={(t) => setAddModal((s) => ({ ...s, name: t, nameError: '' }))}
+                placeholder="e.g. Rajesh Kumar"
+                error={addModal.nameError}
+              />
+              <Input
+                label="Phone Number"
+                value={addModal.phone}
+                onChangeText={(t) => setAddModal((s) => ({ ...s, phone: t, phoneError: '' }))}
+                placeholder="9876543210"
+                keyboardType="phone-pad"
+                maxLength={10}
+                prefix="+91"
+                error={addModal.phoneError}
+              />
+              <Input
+                label="Initial PIN (Optional)"
+                value={addModal.pin}
+                onChangeText={(t) => setAddModal((s) => ({ ...s, pin: t.replace(/[^0-9]/g, '').slice(0, 4), pinError: '' }))}
+                placeholder="User can set on first login"
+                keyboardType="number-pad"
+                maxLength={4}
+                error={addModal.pinError}
+              />
+              {addModal.role === 'customer' && (
+                <Input
+                  label="Company Name"
+                  value={addModal.company}
+                  onChangeText={(t) => setAddModal((s) => ({ ...s, company: t }))}
+                  placeholder="e.g. ABC Logistics"
+                />
+              )}
+
+              <View style={styles.modalActions}>
+                <Button title="Save Personnel" onPress={submitAdd} loading={addModal.submitting} />
+                <TouchableOpacity onPress={() => setAddModal(EMPTY_ADD)} style={styles.cancelBtn}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Action Sheet */}
+      <Modal visible={actionSheet.visible} animationType="fade" transparent>
+        <View style={styles.actionOverlay}>
+          <TouchableOpacity style={styles.flex} onPress={() => setActionSheet(EMPTY_ACTION)} />
+          <View style={styles.actionContent}>
+            <View style={styles.modalHandle} />
+            {actionSheet.user && (
+              <View style={styles.actionBody}>
+                <View style={styles.actionUserHeader}>
+                  <View style={styles.avatarCircleSmall}>
+                    <Text style={styles.avatarTextSmall}>{(actionSheet.user.name ?? '?')[0]}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.actionUserName}>{actionSheet.user.name}</Text>
+                    <Text style={styles.actionUserPhone}>{actionSheet.user.phone}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.actionButtonsGrid}>
+                  <ActionBtn icon="create-outline" label="Edit" onPress={() => setActionSheet(s => ({ ...s, editing: true }))} />
+                  <ActionBtn icon="key-outline" label="Reset PIN" onPress={() => setActionSheet(s => ({ ...s, resettingPin: true }))} />
+                  <ActionBtn 
+                    icon={actionSheet.user.is_active ? "close-circle-outline" : "checkmark-circle-outline"} 
+                    label={actionSheet.user.is_active ? "Suspend" : "Activate"} 
+                    onPress={async () => {
+                      try {
+                        await updateUser(actionSheet.user!.id, { is_active: !actionSheet.user!.is_active });
+                        loadUsers(true);
+                        setActionSheet(EMPTY_ACTION);
+                      } catch { Alert.alert('Error', 'Update failed'); }
+                    }} 
+                  />
+                  <ActionBtn icon="trash-outline" label="Delete" color="#ef4444" onPress={async () => {
+                    Alert.alert('Delete User', 'Are you sure?', [
+                      { text: 'Cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: async () => {
+                        try {
+                          await deleteUser(actionSheet.user!.id);
+                          loadUsers(true);
+                          setActionSheet(EMPTY_ACTION);
+                        } catch { Alert.alert('Error', 'Delete failed'); }
+                      }}
+                    ]);
+                  }} />
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+function ActionBtn({ icon, label, onPress, color = Colors.slate }: any) {
+  return (
+    <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
+      <View style={[styles.actionIconWrap, { borderColor: color + '20' }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={[styles.actionBtnLabel, { color }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#f8fafc' },
+  flex: { flex: 1 },
+  header: {
+    backgroundColor: Colors.slateDark,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2, fontWeight: '600' },
+  logoutBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  logoutText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+
+  tabContainer: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  tabBar: { flex: 1, flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8 },
+  tabActive: { backgroundColor: Colors.slate, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  tabLabelActive: { color: '#FFF' },
+  fab: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.slate, justifyContent: 'center', alignItems: 'center', elevation: 3, shadowOpacity: 0.2, shadowRadius: 5 },
+
+  listContent: { padding: 16, paddingTop: 0, paddingBottom: 40 },
+  card: { backgroundColor: '#FFF', borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  cardInactive: { opacity: 0.5, backgroundColor: '#f8fafc' },
+  cardMain: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  avatarContainer: { position: 'relative' },
+  avatarCircle: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  avatarText: { fontSize: 18, fontWeight: '800', color: Colors.slate },
+  onlineIndicator: { position: 'absolute', right: -2, bottom: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#FFF' },
+  cardInfo: { flex: 1, gap: 2 },
+  userName: { fontSize: 15, fontWeight: '700', color: Colors.slateDark },
+  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  userPhone: { fontSize: 12, color: '#64748b', fontWeight: '500' },
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  userCompany: { fontSize: 11, color: '#94a3b8', fontWeight: '500' },
+  cardRight: { alignItems: 'flex-end', gap: 8 },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
+  emptyText: { fontSize: 14, color: '#94a3b8', marginTop: 12, fontWeight: '500' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)' },
+  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40, maxHeight: '90%' },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#e2e8f0', alignSelf: 'center', marginTop: 12, marginBottom: 20 },
+  modalScroll: { paddingHorizontal: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: Colors.slateDark, marginBottom: 24 },
+  errorText: { color: '#ef4444', fontSize: 13, backgroundColor: '#fef2f2', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#fee2e2' },
+  modalActions: { marginTop: 12, gap: 12 },
+  cancelBtn: { alignItems: 'center', paddingVertical: 12 },
+  cancelText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+
+  actionOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
+  actionContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40 },
+  actionBody: { paddingHorizontal: 24 },
+  actionUserHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottomWidth: 1, borderColor: '#f1f5f9' },
+  avatarCircleSmall: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  avatarTextSmall: { fontSize: 16, fontWeight: '800', color: Colors.slate },
+  actionUserName: { fontSize: 17, fontWeight: '700', color: Colors.slateDark },
+  actionUserPhone: { fontSize: 13, color: '#64748b' },
+  actionButtonsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  actionBtn: { width: '47%', backgroundColor: '#f8fafc', padding: 16, borderRadius: 16, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#f1f5f9' },
+  actionIconWrap: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  actionBtnLabel: { fontSize: 12, fontWeight: '700' },
+});
 
 interface AddModalState {
   visible: boolean;
@@ -114,688 +436,10 @@ interface ActionSheetState {
 }
 
 const EMPTY_ADD: AddModalState = {
-  visible: false,
-  role: 'employee',
-  name: '',
-  phone: '',
-  company: '',
-  pin: '',
-  nameError: '',
-  phoneError: '',
-  pinError: '',
-  apiError: '',
-  submitting: false,
+  visible: false, role: 'employee', name: '', phone: '', company: '', pin: '', nameError: '', phoneError: '', pinError: '', apiError: '', submitting: false,
 };
 
 const EMPTY_ACTION: ActionSheetState = {
-  visible: false,
-  user: null,
-  editing: false,
-  editName: '',
-  editCompany: '',
-  resettingPin: false,
-  newPin: '',
-  pinError: '',
-  submitting: false,
+  visible: false, user: null, editing: false, editName: '', editCompany: '', resettingPin: false, newPin: '', pinError: '', submitting: false,
 };
-
-export default function TeamScreen() {
-  const { logout } = useAuth();
-  const [employees, setEmployees] = useState<User[]>([]);
-  const [customers, setCustomers] = useState<User[]>([]);
-  const [activeTab, setActiveTab] = useState<'employees' | 'customers'>('employees');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [addModal, setAddModal] = useState<AddModalState>(EMPTY_ADD);
-  const [actionSheet, setActionSheet] = useState<ActionSheetState>(EMPTY_ACTION);
-
-  const loadUsers = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const all = await getAllUsers();
-      setEmployees(all.filter((u) => u.role === 'employee'));
-      setCustomers(all.filter((u) => u.role === 'customer'));
-    } catch {
-      // Keep existing data on error
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => { loadUsers(); }, [loadUsers]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadUsers(true);
-  }, [loadUsers]);
-
-  // ── Add modal ──────────────────────────────────────────────────────────────
-
-  const openAdd = (role: 'employee' | 'customer') => {
-    setAddModal({ ...EMPTY_ADD, visible: true, role });
-  };
-
-  const submitAdd = async () => {
-    const name = addModal.name.trim();
-    const phone = addModal.phone.trim();
-    const pin = addModal.pin.trim();
-    let nameError = '';
-    let phoneError = '';
-    let pinError = '';
-
-    if (!name) nameError = 'Name is required';
-    if (!/^\d{10}$/.test(phone)) phoneError = 'Enter a valid 10-digit number';
-    if (pin && (!/^\d{4}$/.test(pin))) pinError = 'PIN must be exactly 4 digits';
-
-    if (nameError || phoneError || pinError) {
-      setAddModal((s) => ({ ...s, nameError, phoneError, pinError }));
-      return;
-    }
-
-    setAddModal((s) => ({ ...s, submitting: true, apiError: '' }));
-    try {
-      await createUser({
-        name,
-        phone: `+91${phone}`,
-        role: addModal.role,
-        company_name: addModal.company.trim() || undefined,
-        pin: pin || undefined,
-      });
-      setAddModal(EMPTY_ADD);
-      loadUsers(true);
-    } catch (e: any) {
-      const detail: string = e?.response?.data?.detail ?? '';
-      const apiError =
-        e?.response?.status === 409
-          ? 'This phone number is already registered'
-          : detail || 'Failed to add user. Try again.';
-      setAddModal((s) => ({ ...s, submitting: false, apiError }));
-    }
-  };
-
-  // ── Action sheet ───────────────────────────────────────────────────────────
-
-  const openAction = (u: User) => {
-    setActionSheet({
-      visible: true,
-      user: u,
-      editing: false,
-      editName: u.name ?? '',
-      editCompany: u.company_name ?? '',
-      resettingPin: false,
-      newPin: '',
-      pinError: '',
-      submitting: false,
-    });
-  };
-
-  const closeAction = () => setActionSheet(EMPTY_ACTION);
-
-  const handleToggleActive = async () => {
-    if (!actionSheet.user) return;
-    const u = actionSheet.user;
-    setActionSheet((s) => ({ ...s, submitting: true }));
-    try {
-      await updateUser(u.id, { is_active: !u.is_active });
-      closeAction();
-      loadUsers(true);
-    } catch {
-      setActionSheet((s) => ({ ...s, submitting: false }));
-      Alert.alert('Error', 'Could not update user. Try again.');
-    }
-  };
-
-  const handleDelete = () => {
-    if (!actionSheet.user) return;
-    const u = actionSheet.user;
-    Alert.alert(
-      'Delete User',
-      `Delete ${u.name ?? u.phone}? This cannot be undone. They will lose access to all shipments immediately.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteUser(u.id);
-              closeAction();
-              if (u.role === 'employee') {
-                setEmployees(prev => prev.filter(e => e.id !== u.id));
-              } else {
-                setCustomers(prev => prev.filter(c => c.id !== u.id));
-              }
-            } catch {
-              Alert.alert('Error', 'Could not delete user. Try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleResetPin = async () => {
-    if (!actionSheet.user) return;
-    const pin = actionSheet.newPin.trim();
-    if (!/^\d{4}$/.test(pin)) {
-      setActionSheet(s => ({ ...s, pinError: 'PIN must be exactly 4 digits' }));
-      return;
-    }
-    setActionSheet(s => ({ ...s, submitting: true, pinError: '' }));
-    try {
-      await updateUser(actionSheet.user!.id, { pin });
-      closeAction();
-      Alert.alert('PIN Reset', `PIN for ${actionSheet.user!.name ?? actionSheet.user!.phone} has been updated.`);
-    } catch {
-      setActionSheet(s => ({ ...s, submitting: false }));
-      Alert.alert('Error', 'Could not reset PIN. Try again.');
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!actionSheet.user) return;
-    const u = actionSheet.user;
-    const name = actionSheet.editName.trim();
-    if (!name) return;
-    setActionSheet((s) => ({ ...s, submitting: true }));
-    try {
-      await updateUser(u.id, {
-        name,
-        company_name: actionSheet.editCompany.trim() || undefined,
-      });
-      closeAction();
-      loadUsers(true);
-    } catch {
-      setActionSheet((s) => ({ ...s, submitting: false }));
-      Alert.alert('Error', 'Could not save changes. Try again.');
-    }
-  };
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  const listData = activeTab === 'employees' ? employees : customers;
-
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Team</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.addBtn} onPress={() => openAdd('employee')}>
-            <Text style={styles.addBtnText}>+ Employee</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.addBtn, styles.addBtnCustomer]} onPress={() => openAdd('customer')}>
-            <Text style={[styles.addBtnText, styles.addBtnCustomerText]}>+ Customer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.signOutBtn}
-            onPress={() => Alert.alert('Sign Out', 'Are you sure?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign Out', style: 'destructive', onPress: logout },
-            ])}
-          >
-            <Text style={styles.signOutBtnText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'employees' && styles.tabActive]}
-          onPress={() => setActiveTab('employees')}
-        >
-          <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
-            Employees ({employees.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'customers' && styles.tabActive]}
-          onPress={() => setActiveTab('customers')}
-        >
-          <Text style={[styles.tabLabel, activeTab === 'customers' && styles.tabLabelActive]}>
-            Customers ({customers.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* List */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={Colors.primary} size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={listData}
-          keyExtractor={(u) => u.id}
-          renderItem={({ item }) => <UserRow user={item} onPress={openAction} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
-          contentContainerStyle={listData.length === 0 ? styles.emptyContainer : styles.listContent}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              {activeTab === 'employees' ? 'No employees yet' : 'No customers yet'}
-            </Text>
-          }
-        />
-      )}
-
-      {/* ── Add Modal ──────────────────────────────────────────────────────── */}
-      <Modal
-        visible={addModal.visible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setAddModal(EMPTY_ADD)}
-      >
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setAddModal(EMPTY_ADD)} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrapper}>
-          <View style={styles.sheet}>
-            <View style={styles.handle} />
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.sheetTitle}>
-                Add {addModal.role === 'employee' ? 'Employee' : 'Customer'}
-              </Text>
-
-              {addModal.apiError ? (
-                <View style={styles.apiErrorBox}>
-                  <Text style={styles.apiErrorText}>{addModal.apiError}</Text>
-                </View>
-              ) : null}
-
-              <Input
-                label="Full Name"
-                value={addModal.name}
-                onChangeText={(t) => setAddModal((s) => ({ ...s, name: t, nameError: '' }))}
-                placeholder="e.g. Rajesh Kumar"
-                error={addModal.nameError}
-              />
-              <Input
-                label="Phone Number"
-                value={addModal.phone}
-                onChangeText={(t) => setAddModal((s) => ({ ...s, phone: t, phoneError: '' }))}
-                placeholder="9876543210"
-                keyboardType="phone-pad"
-                maxLength={10}
-                prefix="+91"
-                error={addModal.phoneError}
-              />
-              <Input
-                label="Initial PIN (optional)"
-                value={addModal.pin}
-                onChangeText={(t) => setAddModal((s) => ({ ...s, pin: t.replace(/[^0-9]/g, '').slice(0, 4), pinError: '' }))}
-                placeholder="Leave blank — user sets on first login"
-                keyboardType="number-pad"
-                maxLength={4}
-                error={addModal.pinError}
-              />
-              <Text style={styles.pinHint}>
-                If you set a PIN, tell the user via WhatsApp. If left blank, the user will be prompted to create their own PIN on first login.
-              </Text>
-              {addModal.role === 'customer' && (
-                <Input
-                  label="Company Name (optional)"
-                  value={addModal.company}
-                  onChangeText={(t) => setAddModal((s) => ({ ...s, company: t }))}
-                  placeholder="e.g. ABC Traders"
-                />
-              )}
-
-              <View style={styles.sheetActions}>
-                <Button
-                  title={`Add ${addModal.role === 'employee' ? 'Employee' : 'Customer'}`}
-                  onPress={submitAdd}
-                  loading={addModal.submitting}
-                />
-                <Button
-                  title="Cancel"
-                  variant="outline"
-                  onPress={() => setAddModal(EMPTY_ADD)}
-                />
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ── Action Sheet ───────────────────────────────────────────────────── */}
-      <Modal
-        visible={actionSheet.visible}
-        animationType="slide"
-        transparent
-        onRequestClose={closeAction}
-      >
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={closeAction} />
-        <View style={styles.sheetWrapper}>
-          <View style={styles.sheet}>
-            <View style={styles.handle} />
-            {actionSheet.user && (
-              <>
-                <View style={styles.actionHeader}>
-                  <Text style={styles.actionName}>{actionSheet.user.name ?? actionSheet.user.phone}</Text>
-                  <RoleBadge role={actionSheet.user.role} />
-                </View>
-
-                {!actionSheet.editing && !actionSheet.resettingPin ? (
-                  <View style={styles.actionButtons}>
-                    <Button
-                      title="Edit Details"
-                      variant="outline"
-                      onPress={() => setActionSheet((s) => ({ ...s, editing: true }))}
-                    />
-                    <Button
-                      title="Reset PIN"
-                      variant="outline"
-                      onPress={() => setActionSheet((s) => ({ ...s, resettingPin: true, newPin: '', pinError: '' }))}
-                    />
-                    <Button
-                      title={actionSheet.user.is_active ? 'Deactivate' : 'Reactivate'}
-                      variant={actionSheet.user.is_active ? 'outline' : 'secondary'}
-                      onPress={handleToggleActive}
-                      loading={actionSheet.submitting}
-                    />
-                    <Button
-                      title="Delete User"
-                      variant="danger"
-                      onPress={handleDelete}
-                    />
-                  </View>
-                ) : actionSheet.resettingPin ? (
-                  <View style={styles.actionButtons}>
-                    <Input
-                      label="New PIN (4 digits)"
-                      value={actionSheet.newPin}
-                      onChangeText={(t) => setActionSheet((s) => ({ ...s, newPin: t.replace(/[^0-9]/g, '').slice(0, 4), pinError: '' }))}
-                      placeholder="e.g. 5678"
-                      keyboardType="number-pad"
-                      maxLength={4}
-                      error={actionSheet.pinError}
-                    />
-                    <Text style={styles.pinHint}>
-                      Tell the user their new PIN via WhatsApp or phone call.
-                    </Text>
-                    <Button
-                      title="Save New PIN"
-                      onPress={handleResetPin}
-                      loading={actionSheet.submitting}
-                    />
-                    <Button
-                      title="Cancel"
-                      variant="outline"
-                      onPress={() => setActionSheet((s) => ({ ...s, resettingPin: false }))}
-                    />
-                  </View>
-                ) : (
-                  <View style={styles.actionButtons}>
-                    <Input
-                      label="Full Name"
-                      value={actionSheet.editName}
-                      onChangeText={(t) => setActionSheet((s) => ({ ...s, editName: t }))}
-                      placeholder="Full name"
-                    />
-                    {actionSheet.user.role === 'customer' && (
-                      <Input
-                        label="Company Name (optional)"
-                        value={actionSheet.editCompany}
-                        onChangeText={(t) => setActionSheet((s) => ({ ...s, editCompany: t }))}
-                        placeholder="Company name"
-                      />
-                    )}
-                    <Button
-                      title="Save Changes"
-                      onPress={handleSaveEdit}
-                      loading={actionSheet.submitting}
-                    />
-                    <Button
-                      title="Cancel"
-                      variant="outline"
-                      onPress={() => setActionSheet((s) => ({ ...s, editing: false }))}
-                    />
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
-  );
-}
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.darkHeader,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  addBtnCustomer: {
-    backgroundColor: '#2E7D32',
-  },
-  addBtnCustomerText: {
-    color: '#FFFFFF',
-  },
-  signOutBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    borderRadius: 8,
-  },
-  signOutBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: Colors.primary,
-  },
-  tabLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  tabLabelActive: {
-    color: Colors.primary,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: 12,
-    gap: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: Colors.textMuted,
-  },
-  row: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  rowInactive: {
-    opacity: 0.6,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  rowInfo: {
-    flex: 1,
-  },
-  rowName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  rowPhone: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 1,
-  },
-  rowCompany: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  rowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  activeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  chevron: {
-    fontSize: 20,
-    color: Colors.textMuted,
-    marginLeft: 2,
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  sheetWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  sheet: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 36,
-    maxHeight: '85%',
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 16,
-  },
-  apiErrorBox: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  apiErrorText: {
-    color: Colors.error,
-    fontSize: 14,
-  },
-  sheetActions: {
-    gap: 8,
-    marginTop: 8,
-  },
-  pinHint: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginBottom: 12,
-    marginTop: -4,
-    lineHeight: 17,
-  },
-  actionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 20,
-  },
-  actionName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  actionButtons: {
-    gap: 10,
-  },
 });

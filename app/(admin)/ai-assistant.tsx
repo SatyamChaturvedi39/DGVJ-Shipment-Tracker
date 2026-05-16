@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,12 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { askAI } from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
   id: string;
@@ -47,12 +49,20 @@ function getTime() {
 }
 
 export default function AIAssistantScreen() {
+  const { logout } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput]       = useState('');
   const [loading, setLoading]   = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const historyForApi = messages.map(m => ({ role: m.role, content: m.content }));
+
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: logout },
+    ]);
+  };
 
   const send = async (question: string) => {
     const q = question.trim();
@@ -153,27 +163,30 @@ export default function AIAssistantScreen() {
       <KeyboardAvoidingView
         style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* Header */}
         <View style={s.header}>
           <View style={s.headerLeft}>
             <View style={s.headerAvatar}>
               <Ionicons name="sparkles" size={20} color="#FFF" />
             </View>
             <View>
-              <Text style={s.headerName}>Digi Operations AI</Text>
+              <Text style={s.headerName}>Digi AI</Text>
               <View style={s.headerStatusRow}>
                 <View style={s.onlineDot} />
                 <Text style={s.headerSub}>Active · Llama 3.3 Core</Text>
               </View>
             </View>
           </View>
-          {messages.length > 0 && (
-            <TouchableOpacity onPress={clearChat} style={s.clearBtn}>
-              <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.7)" />
+          <View style={s.headerRight}>
+            {messages.length > 0 && (
+              <TouchableOpacity onPress={clearChat} style={s.headerBtn}>
+                <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={handleLogout} style={[s.headerBtn, s.signOutBtn]}>
+              <Text style={s.signOutText}>Sign Out</Text>
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         {/* Chat area */}
@@ -298,7 +311,10 @@ const s = StyleSheet.create({
   headerStatusRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   onlineDot:         { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' },
   headerSub:         { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
-  clearBtn:          { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  headerRight:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerBtn:         { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
+  signOutBtn:        { width: 'auto', paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  signOutText:       { color: '#FFF', fontSize: 11, fontWeight: '700' },
 
   // Empty state
   emptyWrap:         { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

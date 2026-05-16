@@ -26,8 +26,19 @@ export default function AdminLayout() {
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
         headerRight: () => (
-          <TouchableOpacity onPress={handleLogout} style={{ marginRight: 16, paddingVertical: 4, paddingHorizontal: 8 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Sign Out</Text>
+          <TouchableOpacity 
+            onPress={handleLogout} 
+            style={{ 
+              marginRight: 16, 
+              paddingVertical: 6, 
+              paddingHorizontal: 12, 
+              borderRadius: 8, 
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.15)'
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Sign Out</Text>
           </TouchableOpacity>
         ),
         tabBarActiveTintColor: Colors.primary,
@@ -46,21 +57,21 @@ export default function AdminLayout() {
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => <Ionicons name="grid-outline" size={26} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="grid-outline" size={30} color={color} />,
         }}
       />
       <Tabs.Screen
         name="create-shipment"
         options={{
           title: 'New',
-          tabBarIcon: ({ color }) => <Ionicons name="add-circle-outline" size={28} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="add-circle-outline" size={32} color={color} />,
         }}
       />
       <Tabs.Screen
         name="archive"
         options={{
           title: 'Archive',
-          tabBarIcon: ({ color }) => <Ionicons name="archive-outline" size={26} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="archive-outline" size={30} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -68,23 +79,24 @@ export default function AdminLayout() {
         options={{
           title: 'Team',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={26} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={30} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={25} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
         name="ai-assistant"
         options={{
-          title: 'AI',
+          title: 'Digi AI',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <View>
-              <Ionicons name="sparkles" size={24} color={color} />
+              <Ionicons name="sparkles" size={26} color={color} />
             </View>
           ),
         }}

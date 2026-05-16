@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -16,40 +17,26 @@ import { PHASE_CONFIG } from '@/constants/phases';
 import { getShipments } from '@/services/api';
 import { formatETA, formatFullDate } from '@/utils/formatDate';
 import { useAuth } from '@/hooks/useAuth';
-import type { Shipment, ShipmentPhase } from '@/types';
-
-// ─── Role badge ───────────────────────────────────────────────────────────────
+import type { Shipment } from '@/types';
 
 function RoleBadge({ role }: { role: 'pickup' | 'delivery' }) {
   const isPickup = role === 'pickup';
   return (
-    <View style={[styles.roleBadge, isPickup ? styles.roleBadgePickup : styles.roleBadgeDelivery]}>
-      <Text style={[styles.roleBadgeText, { color: isPickup ? '#F57F17' : '#1565C0' }]}>
+    <View style={[styles.roleBadge, { backgroundColor: isPickup ? '#fef3c7' : '#e0f2fe' }]}>
+      <Ionicons name={isPickup ? "arrow-up-circle-outline" : "arrow-down-circle-outline"} size={12} color={isPickup ? '#d97706' : '#0284c7'} style={{ marginRight: 4 }} />
+      <Text style={[styles.roleBadgeText, { color: isPickup ? '#d97706' : '#0284c7' }]}>
         {isPickup ? 'PICKUP' : 'DELIVERY'}
       </Text>
     </View>
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getEmployeeRole(
-  shipment: Shipment,
-  userId: string,
-): 'pickup' | 'delivery' {
+function getEmployeeRole(shipment: Shipment, userId: string): 'pickup' | 'delivery' {
   if (shipment.delivery_employee_id === userId) return 'delivery';
   return 'pickup';
 }
 
-// ─── Job card ─────────────────────────────────────────────────────────────────
-
-function JobCard({
-  shipment,
-  employeeRole,
-}: {
-  shipment: Shipment;
-  employeeRole: 'pickup' | 'delivery';
-}) {
+function JobCard({ shipment, employeeRole }: { shipment: Shipment; employeeRole: 'pickup' | 'delivery' }) {
   const isCompleted = shipment.current_phase === 'completed';
   const cfg = PHASE_CONFIG[shipment.current_phase];
 
@@ -60,28 +47,32 @@ function JobCard({
       onPress={() => router.push(`/(employee)/job-detail?id=${shipment.id}`)}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.trackingId}>{shipment.tracking_id}</Text>
-        <View style={[styles.phaseBadge, { backgroundColor: cfg.bg }]}>
-          <Text style={[styles.phaseBadgeText, { color: cfg.text }]}>{cfg.label}</Text>
+        <View style={styles.trackingIdWrap}>
+          <Text style={styles.trackingIdText}>{shipment.tracking_id}</Text>
         </View>
+        <RoleBadge role={employeeRole} />
       </View>
 
-      <View style={styles.routeRow}>
-        <View style={styles.cityBox}>
-          <Text style={styles.cityLabel}>From</Text>
+      <View style={styles.routeContainer}>
+        <View style={styles.routePoint}>
           <Text style={styles.cityName}>{shipment.origin}</Text>
+          <Text style={styles.routeLabel}>Origin</Text>
         </View>
-        <View style={styles.routeArrow}>
-          <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+        <View style={styles.routeLine}>
+          <View style={styles.line} />
+          <Ionicons name="chevron-forward" size={14} color="#e2e8f0" />
+          <View style={styles.line} />
         </View>
-        <View style={[styles.cityBox, { alignItems: 'flex-end' }]}>
-          <Text style={styles.cityLabel}>To</Text>
+        <View style={[styles.routePoint, { alignItems: 'flex-end' }]}>
           <Text style={styles.cityName}>{shipment.destination}</Text>
+          <Text style={styles.routeLabel}>Destination</Text>
         </View>
       </View>
 
       <View style={styles.cardFooter}>
-        <RoleBadge role={employeeRole} />
+        <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+          <Text style={[styles.statusBadgeText, { color: cfg.text }]}>{cfg.label}</Text>
+        </View>
         {isCompleted ? (
           <Text style={styles.footerNote}>Done {formatFullDate(shipment.completed_at)}</Text>
         ) : shipment.eta_date ? (
@@ -92,61 +83,20 @@ function JobCard({
   );
 }
 
-// ─── Tab bar ─────────────────────────────────────────────────────────────────
-
-function TabBar({
-  active,
-  activeCount,
-  completedCount,
-  onChange,
-}: {
-  active: 'active' | 'completed';
-  activeCount: number;
-  completedCount: number;
-  onChange: (tab: 'active' | 'completed') => void;
-}) {
-  return (
-    <View style={styles.tabContainer}>
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, active === 'active' && styles.tabActive]}
-          onPress={() => onChange('active')}
-        >
-          <Text style={[styles.tabText, active === 'active' && styles.tabTextActive]}>
-            Active ({activeCount})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, active === 'completed' && styles.tabActive]}
-          onPress={() => onChange('completed')}
-        >
-          <Text style={[styles.tabText, active === 'completed' && styles.tabTextActive]}>
-            History ({completedCount})
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-// ─── Main screen ─────────────────────────────────────────────────────────────
-
 export default function MyJobs() {
   const { user } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'active' | 'completed'>('active');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    setError(null);
     try {
       const data = await getShipments();
       setShipments(data);
-    } catch (e: any) {
-      setError('Could not load jobs');
+    } catch {
+      // Handled by empty state
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -161,17 +111,8 @@ export default function MyJobs() {
     }, [load])
   );
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    load(true);
-  };
-
   const userId = user?.id ?? '';
-
-  const isAssigned = (s: Shipment) =>
-    Config.DEV_MOCK_AUTH ||
-    s.pickup_employee_id === userId ||
-    s.delivery_employee_id === userId;
+  const isAssigned = (s: Shipment) => Config.DEV_MOCK_AUTH || s.pickup_employee_id === userId || s.delivery_employee_id === userId;
 
   const activeJobs = shipments.filter(s => {
     if (!isAssigned(s)) return false;
@@ -179,51 +120,57 @@ export default function MyJobs() {
     if (Config.DEV_MOCK_AUTH) return true;
     const role = getEmployeeRole(s, userId);
     if (role === 'pickup') return s.current_phase === 'pickup' || s.current_phase === 'transit';
-    return true; // delivery drivers see from handed_to_carrier onwards
+    return true;
   });
 
-  const completedJobs = shipments.filter(
-    s => s.current_phase === 'completed' && isAssigned(s),
-  );
-
+  const completedJobs = shipments.filter(s => s.current_phase === 'completed' && isAssigned(s));
   const displayed = tab === 'active' ? activeJobs : completedJobs;
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={Colors.slate} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <TabBar active={tab} activeCount={activeJobs.length} completedCount={completedJobs.length} onChange={setTab} />
+      <StatusBar barStyle="dark-content" />
+      
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Field Operations</Text>
+        <Text style={styles.headerSub}>{activeJobs.length} Assigned Tasks</Text>
+      </View>
+
+      <View style={styles.tabContainer}>
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, tab === 'active' && styles.tabActive]}
+            onPress={() => setTab('active')}
+          >
+            <Text style={[styles.tabLabel, tab === 'active' && styles.tabLabelActive]}>Active ({activeJobs.length})</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, tab === 'completed' && styles.tabActive]}
+            onPress={() => setTab('completed')}
+          >
+            <Text style={[styles.tabLabel, tab === 'completed' && styles.tabLabelActive]}>History</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={Colors.slate} />}
       >
         {displayed.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name={tab === 'active' ? 'briefcase-outline' : 'checkmark-done-outline'} size={48} color={Colors.border} />
-            <Text style={styles.emptyTitle}>
-              {tab === 'active' ? 'No active jobs' : 'No history yet'}
-            </Text>
-            <Text style={styles.emptySub}>
-              {tab === 'active' ? 'Assigned tasks will appear here' : 'Completed tasks will be archived here'}
-            </Text>
+          <View style={styles.emptyWrap}>
+            <Ionicons name={tab === 'active' ? "briefcase-outline" : "checkmark-done-outline"} size={60} color="#e2e8f0" />
+            <Text style={styles.emptyText}>{tab === 'active' ? 'No active assignments' : 'No history yet'}</Text>
           </View>
         ) : (
-          displayed.map(s => (
-            <JobCard
-              key={s.id}
-              shipment={s}
-              employeeRole={getEmployeeRole(s, userId)}
-            />
-          ))
+          displayed.map(s => <JobCard key={s.id} shipment={s} employeeRole={getEmployeeRole(s, userId)} />)
         )}
       </ScrollView>
     </View>
@@ -231,70 +178,40 @@ export default function MyJobs() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.surface },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1e293b' },
+  headerSub: { fontSize: 12, color: '#64748b', fontWeight: '600', marginTop: 4 },
+
+  tabContainer: { paddingHorizontal: 20, marginBottom: 12 },
+  tabBar: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8 },
+  tabActive: { backgroundColor: Colors.slate, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  tabLabelActive: { color: '#FFF' },
+
+  list: { padding: 20, paddingTop: 0, paddingBottom: 40 },
+  card: { backgroundColor: '#FFF', borderRadius: 20, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  trackingIdWrap: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  trackingIdText: { fontSize: 12, fontWeight: '800', color: Colors.slate, letterSpacing: 0.5 },
+  
+  roleBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  roleBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+
+  routeContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  routePoint: { flex: 1, gap: 4 },
+  cityName: { fontSize: 15, fontWeight: '700', color: '#1e293b' },
+  routeLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
+  routeLine: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  line: { flex: 1, height: 1, backgroundColor: '#e2e8f0' },
+
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTopWidth: 1, borderColor: '#f1f5f9' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  footerNote: { fontSize: 11, color: '#94a3b8', fontWeight: '600' },
+
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  tabContainer: {
-    backgroundColor: Colors.background,
-    paddingTop: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surfaceElevated,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  tab: { flex: 1, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
-  tabActive: { backgroundColor: Colors.slate },
-  tabText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  tabTextActive: { color: '#FFF' },
-
-  list: { padding: 16, paddingBottom: 40 },
-  card: {
-    backgroundColor: Colors.background,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    fontWeight: '500',
-  },
-
-  // Phase badge
-  phaseBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  phaseBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  // Role badge
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  roleBadgePickup: {
-    backgroundColor: '#FFF8E1',
-  },
-  roleBadgeDelivery: {
-    backgroundColor: '#E3F2FD',
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
     color: Colors.textPrimary,
   },
 

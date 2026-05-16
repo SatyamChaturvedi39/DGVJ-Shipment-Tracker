@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -16,111 +17,79 @@ import { getShipments } from '@/services/api';
 import { formatETA } from '@/utils/formatDate';
 import type { Shipment, ShipmentPhase, TransportMode } from '@/types';
 
-// MANUAL TEST REQUIRED: My Shipments shows permitted shipments only
-//   1. Log in as a customer (real phone OTP or Firebase test number)
-//   2. Only shipments where this customer's user ID is in shipment_permissions must appear
-//   3. Shipments NOT granted to this customer must not be visible
-//   4. Search bar filters by tracking ID — verify partial matches work
-//   5. Tap a shipment card → navigates to the tracking screen
-
-// ─── Phase config ─────────────────────────────────────────────────────────────
-
-const PHASE_BADGE: Record<ShipmentPhase, { bg: string; text: string }> = {
-  pickup:            { bg: '#FFF8E1', text: '#F57F17' },
-  transit:           { bg: '#E3F2FD', text: '#1565C0' },
-  handed_to_carrier: { bg: '#F3E5F5', text: '#6A1B9A' },
-  out_for_delivery:  { bg: '#FFF8E1', text: '#F57F17' },
-  completed:         { bg: '#E8F5E9', text: '#2E7D32' },
+const PHASE_CONFIG: Record<ShipmentPhase, { bg: string; text: string; icon: string; label: string }> = {
+  pickup:            { bg: '#fef3c7', text: '#d97706', icon: 'cube-outline', label: 'Driver heading to pickup' },
+  transit:           { bg: '#e0f2fe', text: '#0284c7', icon: 'car-outline', label: 'Moving to terminal' },
+  handed_to_carrier: { bg: '#f3e8ff', text: '#9333ea', icon: 'airplane-outline', label: 'In transit via carrier' },
+  out_for_delivery:  { bg: '#fef3c7', text: '#d97706', icon: 'bicycle-outline', label: 'Out for delivery' },
+  completed:         { bg: '#f0fdf4', text: '#16a34a', icon: 'checkmark-circle-outline', label: 'Successfully Delivered' },
 };
-
-const PHASE_ACCENT: Record<ShipmentPhase, string> = {
-  pickup:            '#F57F17',
-  transit:           '#1565C0',
-  handed_to_carrier: '#6A1B9A',
-  out_for_delivery:  '#F57F17',
-  completed:         '#2E7D32',
-};
-
-function getStatusLabel(shipment: Shipment): string {
-  switch (shipment.current_phase) {
-    case 'pickup':            return '📦 Driver heading to pickup';
-    case 'transit':           return `🚗 Heading to ${shipment.transport_mode === 'air' ? 'airport' : 'railway station'}`;
-    case 'handed_to_carrier': return `${shipment.transport_mode === 'air' ? '✈' : '🚂'} In transit via ${shipment.transport_mode === 'air' ? 'Air' : 'Train'}`;
-    case 'out_for_delivery':  return '🛵 Out for delivery';
-    case 'completed':         return '✓ Delivered';
-  }
-}
-
-function getTransportIcon(mode: TransportMode): string {
-  return mode === 'air' ? '✈️' : '🚂';
-}
-
-// ─── Shipment card ────────────────────────────────────────────────────────────
 
 function ShipmentCard({ shipment }: { shipment: Shipment }) {
-  const badge = PHASE_BADGE[shipment.current_phase];
-  const accentColor = PHASE_ACCENT[shipment.current_phase];
+  const config = PHASE_CONFIG[shipment.current_phase];
   const isCompleted = shipment.current_phase === 'completed';
 
   return (
     <TouchableOpacity
-      style={[styles.card, { borderLeftColor: accentColor }]}
-      activeOpacity={0.75}
+      style={styles.card}
+      activeOpacity={0.7}
       onPress={() => router.push(`/(customer)/shipment-tracking?id=${shipment.id}`)}
     >
-      {/* Top row: tracking ID + transport icon */}
-      <View style={styles.cardTop}>
-        <Text style={styles.trackingId}>{shipment.tracking_id}</Text>
-        <Text style={styles.transportIcon}>{getTransportIcon(shipment.transport_mode)}</Text>
-      </View>
-
-      {/* Route */}
-      <View style={styles.routeRow}>
-        <Text style={styles.routeCity}>{shipment.origin}</Text>
-        <Ionicons name="arrow-forward" size={14} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
-        <Text style={styles.routeCity}>{shipment.destination}</Text>
-      </View>
-
-      {/* Status badge */}
-      <View style={styles.cardBottom}>
-        <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.statusBadgeText, { color: badge.text }]}>
-            {getStatusLabel(shipment)}
-          </Text>
+      <View style={styles.cardHeader}>
+        <View style={styles.trackingIdBadge}>
+          <Text style={styles.trackingIdText}>{shipment.tracking_id}</Text>
         </View>
-        {isCompleted ? null : (
-          shipment.eta_date ? (
-            <Text style={styles.eta}>
-              ETA {formatETA(shipment.eta_date, shipment.eta_time)}
-            </Text>
-          ) : null
+        <Ionicons 
+          name={shipment.transport_mode === 'air' ? 'airplane' : 'train'} 
+          size={18} 
+          color="#94a3b8" 
+        />
+      </View>
+
+      <View style={styles.routeContainer}>
+        <View style={styles.routePoint}>
+          <View style={[styles.dot, { backgroundColor: Colors.slate }]} />
+          <Text style={styles.cityName}>{shipment.origin}</Text>
+        </View>
+        <View style={styles.routeLine}>
+          <View style={styles.lineDashed} />
+          <Ionicons name="chevron-forward" size={14} color="#e2e8f0" />
+        </View>
+        <View style={styles.routePoint}>
+          <View style={[styles.dot, { backgroundColor: '#22c55e' }]} />
+          <Text style={styles.cityName}>{shipment.destination}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
+          <Ionicons name={config.icon as any} size={12} color={config.text} style={{ marginRight: 6 }} />
+          <Text style={[styles.statusText, { color: config.text }]}>{config.label}</Text>
+        </View>
+        {!isCompleted && shipment.eta_date && (
+          <Text style={styles.etaText}>
+            ETA {formatETA(shipment.eta_date, shipment.eta_time)}
+          </Text>
         )}
       </View>
     </TouchableOpacity>
   );
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
-
-type TabKey = 'active' | 'history';
-
 export default function MyShipments() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    setError(null);
     try {
       const data = await getShipments();
       setShipments(data);
-    } catch (e: any) {
-      const msg = e?.response?.data?.detail ?? e?.message ?? 'Unknown error';
-      setError(`Could not load shipments: ${msg}`);
+    } catch {
+      // Handled by empty state
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -135,12 +104,6 @@ export default function MyShipments() {
     }, [load])
   );
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    load(true);
-  };
-
-  // Split by tab first, then filter by query
   const tabShipments = activeTab === 'active'
     ? shipments.filter(s => s.current_phase !== 'completed')
     : shipments.filter(s => s.current_phase === 'completed');
@@ -148,110 +111,70 @@ export default function MyShipments() {
   const filtered = query.trim()
     ? tabShipments.filter(s => {
         const q = query.toLowerCase();
-        return (
-          s.tracking_id.toLowerCase().includes(q) ||
-          s.origin.toLowerCase().includes(q) ||
-          s.destination.toLowerCase().includes(q)
-        );
+        return s.tracking_id.toLowerCase().includes(q) || s.origin.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q);
       })
     : tabShipments;
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={Colors.slate} />
       </View>
     );
   }
-
-  // ── Error ─────────────────────────────────────────────────────────────────
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const activeCount  = shipments.filter(s => s.current_phase !== 'completed').length;
-  const historyCount = shipments.filter(s => s.current_phase === 'completed').length;
 
   return (
     <View style={styles.container}>
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {(['active', 'history'] as TabKey[]).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => { setActiveTab(tab); setQuery(''); }}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab === 'active' ? `Active  ${activeCount > 0 ? `(${activeCount})` : ''}` : `History  ${historyCount > 0 ? `(${historyCount})` : ''}`}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <StatusBar barStyle="light-content" />
+      
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>My Shipments</Text>
+        <Text style={styles.headerSub}>{shipments.length} Total Parcels</Text>
       </View>
 
-      {/* Search bar */}
-      <View style={styles.searchWrapper}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by tracking ID, origin, destination…"
-          placeholderTextColor={Colors.textMuted}
-          value={query}
-          onChangeText={setQuery}
-          returnKeyType="search"
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')} style={styles.clearBtn}>
-            <Text style={styles.clearBtnText}>✕</Text>
+      <View style={styles.tabContainer}>
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'active' && styles.tabActive]}
+            onPress={() => setActiveTab('active')}
+          >
+            <Text style={[styles.tabLabel, activeTab === 'active' && styles.tabLabelActive]}>Active</Text>
           </TouchableOpacity>
-        )}
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+            onPress={() => setActiveTab('history')}
+          >
+            <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>History</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={18} color="#94a3b8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search shipments..."
+            placeholderTextColor="#94a3b8"
+            value={query}
+            onChangeText={setQuery}
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-          />
-        }
-        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={Colors.slate} />}
       >
         {filtered.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>
-              {query.trim() ? '🔍' : activeTab === 'active' ? '📦' : '✅'}
-            </Text>
-            <Text style={styles.emptyTitle}>
-              {query.trim()
-                ? 'No results found'
-                : activeTab === 'active'
-                ? shipments.length === 0
-                  ? 'No shipments assigned to you yet'
-                  : 'No active shipments'
-                : 'No completed shipments yet'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {query.trim()
-                ? `No shipments match "${query}". Try a different search.`
-                : activeTab === 'active' && shipments.length === 0
-                ? 'Contact Digvijay Express to get access to your shipments.'
-                : activeTab === 'history'
-                ? 'Completed shipments will appear here.'
-                : 'All your shipments are completed.'}
-            </Text>
+          <View style={styles.emptyWrap}>
+            <Ionicons name={activeTab === 'active' ? "cube-outline" : "archive-outline"} size={60} color="#e2e8f0" />
+            <Text style={styles.emptyText}>No shipments found</Text>
           </View>
         ) : (
           filtered.map(s => <ShipmentCard key={s.id} shipment={s} />)
@@ -261,192 +184,42 @@ export default function MyShipments() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
-  },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { backgroundColor: Colors.slateDark, paddingHorizontal: 20, paddingVertical: 16 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2, fontWeight: '600' },
 
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surfaceElevated,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  tabTextActive: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
+  tabContainer: { paddingHorizontal: 20, paddingTop: 16 },
+  tabBar: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8 },
+  tabActive: { backgroundColor: Colors.slate, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  tabLabelActive: { color: '#FFF' },
 
-  // Search bar
-  searchWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceElevated,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  searchIcon: { fontSize: 16 },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
-  clearBtn: {
-    padding: 4,
-  },
-  clearBtnText: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    fontWeight: '700',
-  },
+  searchContainer: { paddingHorizontal: 20, paddingVertical: 12 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: '#f1f5f9', gap: 10 },
+  searchInput: { flex: 1, fontSize: 14, color: Colors.slateDark },
 
-  // List
-  list: {
-    padding: 16,
-    paddingBottom: 32,
-    flexGrow: 1,
-  },
+  list: { padding: 20, paddingTop: 0, paddingBottom: 40 },
+  card: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  trackingIdBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  trackingIdText: { fontSize: 12, fontWeight: '800', color: Colors.slate, letterSpacing: 0.5 },
+  
+  routeContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  routePoint: { flex: 1, alignItems: 'center', gap: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  cityName: { fontSize: 13, fontWeight: '700', color: Colors.slateDark },
+  routeLine: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  lineDashed: { flex: 1, height: 1, backgroundColor: '#e2e8f0', borderRadius: 1 },
 
-  // Shipment card
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  trackingId: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.primary,
-    letterSpacing: 0.8,
-  },
-  transportIcon: {
-    fontSize: 20,
-  },
-  routeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  routeCity: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    flexShrink: 1,
-  },
-  routeArrow: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-  },
-  cardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  eta: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  // Empty state
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-    lineHeight: 20,
-  },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  etaText: { fontSize: 11, color: '#94a3b8', fontWeight: '600' },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
+  emptyText: { fontSize: 14, color: '#94a3b8', marginTop: 12, fontWeight: '500' },
 });

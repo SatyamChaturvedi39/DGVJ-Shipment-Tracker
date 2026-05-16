@@ -7,92 +7,90 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
-import { PHASE_CONFIG, PHASE_BORDER } from '@/constants/phases';
+import { PHASE_CONFIG } from '@/constants/phases';
 import { getShipments } from '@/services/api';
 import { formatETA } from '@/utils/formatDate';
 import { useAuth } from '@/hooks/useAuth';
 import type { Shipment, ShipmentPhase } from '@/types';
 
-// ─── Phase badge ─────────────────────────────────────────────────────────────
-
-function PhaseBadge({ phase }: { phase: ShipmentPhase }) {
-  const cfg = PHASE_CONFIG[phase] ?? PHASE_CONFIG.pickup;
+function StatCard({ label, value, icon, color }: { label: string; value: number; icon: string; color: string }) {
   return (
-    <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-      <Text style={[styles.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
+    <View style={styles.statCard}>
+      <View style={[styles.statIconWrap, { backgroundColor: color + '15' }]}>
+        <Ionicons name={icon as any} size={20} color={color} />
+      </View>
+      <View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
     </View>
   );
 }
-
-// ─── Stat pill (horizontal scroll) ───────────────────────────────────────────
-
-function StatPill({
-  label, value, accent,
-}: { label: string; value: number; accent: string }) {
-  return (
-    <View style={[styles.statPill, { borderTopColor: accent }]}>
-      <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-// ─── Shipment card ───────────────────────────────────────────────────────────
 
 function ShipmentCard({ shipment }: { shipment: Shipment }) {
-  const borderColor = PHASE_BORDER[shipment.current_phase] ?? Colors.border;
+  const cfg = PHASE_CONFIG[shipment.current_phase] ?? PHASE_CONFIG.pickup;
+  
   return (
     <TouchableOpacity
-      style={[styles.card, { borderLeftColor: borderColor }]}
-      activeOpacity={0.72}
+      style={styles.card}
+      activeOpacity={0.7}
       onPress={() => router.push(`/(admin)/shipment-detail?id=${shipment.id}`)}
     >
-      <View style={styles.cardTop}>
-        <Text style={styles.trackingId}>{shipment.tracking_id}</Text>
-        <PhaseBadge phase={shipment.current_phase} />
+      <View style={styles.cardHeader}>
+        <View style={styles.trackingBadge}>
+          <Text style={styles.trackingText}>{shipment.tracking_id}</Text>
+        </View>
+        <View style={[styles.phaseBadge, { backgroundColor: cfg.bg }]}>
+          <Text style={[styles.phaseText, { color: cfg.text }]}>{cfg.label}</Text>
+        </View>
       </View>
 
-      <Text style={styles.route}>
-        <Text style={styles.routeCity}>{shipment.origin}</Text>
-        <Ionicons name="arrow-forward" size={18} color={Colors.textSecondary} style={{ marginHorizontal: 8 }} />
-        <Text style={styles.routeCity}>{shipment.destination}</Text>
-      </Text>
+      <View style={styles.routeBox}>
+        <View style={styles.routePoint}>
+          <Text style={styles.cityText}>{shipment.origin}</Text>
+          <Text style={styles.routeLabel}>Origin</Text>
+        </View>
+        <View style={styles.routeLine}>
+          <View style={styles.line} />
+          <Ionicons name={shipment.transport_mode === 'air' ? 'airplane' : 'train'} size={14} color="#cbd5e1" />
+          <View style={styles.line} />
+        </View>
+        <View style={[styles.routePoint, { alignItems: 'flex-end' }]}>
+          <Text style={styles.cityText}>{shipment.destination}</Text>
+          <Text style={styles.routeLabel}>Destination</Text>
+        </View>
+      </View>
 
-      <View style={styles.cardBottom}>
-        <View style={styles.transportChip}>
-          <Text style={styles.transportChipText}>
-            {shipment.transport_mode === 'air' ? '✈' : '🚂'}  {shipment.transport_number ?? '—'}
+      <View style={styles.cardFooter}>
+        <View style={styles.footerItem}>
+          <Ionicons name="time-outline" size={14} color="#94a3b8" />
+          <Text style={styles.footerText}>
+            {shipment.eta_date ? formatETA(shipment.eta_date, shipment.eta_time) : 'No ETA'}
           </Text>
         </View>
-        <Text style={styles.eta}>
-          {shipment.eta_date ? formatETA(shipment.eta_date, shipment.eta_time) : ''}
-        </Text>
+        <Ionicons name="chevron-forward" size={16} color="#e2e8f0" />
       </View>
     </TouchableOpacity>
   );
 }
-
-// ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    setError(null);
     try {
       setShipments(await getShipments());
     } catch {
-      setError('Could not load shipments. Check your connection.');
+      // Error handled by empty state
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,33 +105,22 @@ export default function AdminDashboard() {
     }, [load])
   );
 
-  const today = new Date().toISOString().slice(0, 10);
-  const active      = shipments.filter(s => s.current_phase !== 'completed');
-  const pickup      = shipments.filter(s => s.current_phase === 'pickup').length;
+  const active = shipments.filter(s => s.current_phase !== 'completed');
+  const transit = shipments.filter(s => s.current_phase === 'transit' || s.current_phase === 'handed_to_carrier').length;
   const outDelivery = shipments.filter(s => s.current_phase === 'out_for_delivery').length;
-  const delivered   = shipments.filter(
-    s => s.current_phase === 'completed' && s.completed_at?.slice(0, 10) === today
-  ).length;
+  const pickup = shipments.filter(s => s.current_phase === 'pickup').length;
 
-  const greetingHour = new Date().getHours();
-  const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingLabel}>Loading shipments…</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+        <ActivityIndicator size="large" color={Colors.slate} />
       </View>
     );
   }
@@ -142,255 +129,84 @@ export default function AdminDashboard() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); load(true); }}
-          tintColor={Colors.primary}
-        />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={Colors.slate} />}
     >
-      {/* ── Greeting header ─────────────────────────────────────── */}
-      <View style={styles.headerRow}>
+      <StatusBar barStyle="dark-content" />
+      
+      <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>{greeting},</Text>
-          <Text style={styles.adminName}>{user?.name ?? 'Admin'}</Text>
+          <Text style={styles.greeting}>{greeting()},</Text>
+          <Text style={styles.userName}>{user?.name ?? 'Commander'}</Text>
         </View>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {(user?.name ?? 'A')[0].toUpperCase()}
-          </Text>
+        <View style={styles.avatarWrap}>
+          <Text style={styles.avatarChar}>{(user?.name ?? 'A')[0]}</Text>
         </View>
       </View>
 
-      {/* ── Stats horizontal scroll ──────────────────────────────── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.statsScroll}
-      >
-        <StatPill label="Active"          value={active.length}  accent={Colors.primary} />
-        <StatPill label="Pickup"          value={pickup}         accent="#F57F17" />
-        <StatPill label="Out for Delivery" value={outDelivery}   accent="#1565C0" />
-        <StatPill label="Delivered Today" value={delivered}      accent={Colors.success} />
-      </ScrollView>
+      <View style={styles.statsGrid}>
+        <StatCard label="Live Jobs" value={active.length} icon="flash-outline" color="#3b82f6" />
+        <StatCard label="Pickups" value={pickup} icon="cube-outline" color="#f59e0b" />
+        <StatCard label="In Transit" value={transit} icon="airplane-outline" color="#8b5cf6" />
+        <StatCard label="Delivering" value={outDelivery} icon="bicycle-outline" color="#10b981" />
+      </View>
 
-      {/* ── Active list ──────────────────────────────────────────── */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeader}>Active Shipments</Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{active.length}</Text>
-        </View>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Priority Shipments</Text>
+        <TouchableOpacity onPress={() => load(true)}>
+          <Ionicons name="refresh-outline" size={18} color={Colors.slate} />
+        </TouchableOpacity>
       </View>
 
       {active.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📦</Text>
-          <Text style={styles.emptyTitle}>No active shipments</Text>
-          <Text style={styles.emptySubtitle}>Tap the + tab to create one.</Text>
+        <View style={styles.emptyWrap}>
+          <Ionicons name="shield-checkmark-outline" size={60} color="#e2e8f0" />
+          <Text style={styles.emptyText}>All operations are completed</Text>
         </View>
       ) : (
-        active.map(s => <ShipmentCard key={s.id} shipment={s} />)
+        active.slice(0, 10).map(s => <ShipmentCard key={s.id} shipment={s} />)
       )}
     </ScrollView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  content:   { padding: 16, paddingBottom: 40 },
-  center:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 24 },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  content: { padding: 20, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  loadingLabel: { marginTop: 12, fontSize: 14, color: Colors.textSecondary },
-  errorText:    { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', marginBottom: 16 },
-  retryBtn:     { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  retryText:    { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 10 },
+  greeting: { fontSize: 13, color: '#64748b', fontWeight: '600' },
+  userName: { fontSize: 24, fontWeight: '800', color: Colors.slateDark, marginTop: 2 },
+  avatarWrap: { width: 48, height: 48, borderRadius: 16, backgroundColor: Colors.slate, justifyContent: 'center', alignItems: 'center', shadowColor: Colors.slate, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  avatarChar: { color: '#FFF', fontSize: 18, fontWeight: '800' },
 
-  // Header
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  greeting: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 2,
-  },
-  adminName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: '#FFF',
-    fontWeight: '800',
-    fontSize: 18,
-  },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 32 },
+  statCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  statIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  statValue: { fontSize: 20, fontWeight: '800', color: Colors.slateDark },
+  statLabel: { fontSize: 11, color: '#64748b', fontWeight: '600', marginTop: 1 },
 
-  // Stats
-  statsScroll: {
-    gap: 10,
-    paddingBottom: 4,
-    marginBottom: 24,
-  },
-  statPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    minWidth: 110,
-    borderTopWidth: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  statValue: {
-    fontSize: 30,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.slateDark },
 
-  // Section header
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  countBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  countBadgeText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
+  card: { backgroundColor: '#FFF', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  trackingBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  trackingText: { fontSize: 11, fontWeight: '800', color: Colors.slate, letterSpacing: 0.5 },
+  phaseBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  phaseText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
 
-  // Shipment card
-  card: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-    borderLeftWidth: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  trackingId: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.primary,
-    letterSpacing: 0.5,
-  },
-  route: {
-    fontSize: 15,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  routeCity: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  cardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  transportChip: {
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  transportChipText: {
-    fontSize: 12,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  eta: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
+  routeBox: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  routePoint: { flex: 1, gap: 4 },
+  cityText: { fontSize: 15, fontWeight: '700', color: Colors.slateDark },
+  routeLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' },
+  routeLine: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  line: { flex: 1, height: 1, backgroundColor: '#e2e8f0' },
 
-  // Badge
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderColor: '#f1f5f9' },
+  footerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  footerText: { fontSize: 12, color: '#64748b', fontWeight: '500' },
 
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 56,
-  },
-  emptyIcon: {
-    fontSize: 52,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
+  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  emptyText: { fontSize: 14, color: '#94a3b8', fontWeight: '500' },
 });

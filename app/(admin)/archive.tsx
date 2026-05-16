@@ -54,19 +54,19 @@ function ShipmentCard({ item }: { item: Shipment }) {
           <Ionicons name={isAir ? 'airplane' : 'train'} size={18} color={Colors.textSecondary} />
           <Text style={styles.modeText}>{isAir ? 'Air' : 'Train'} • {item.transport_number}</Text>
         </View>
-        <Text style={styles.completedAt}>Done {formatFullDate(item.completed_at)}</Text>
+        <Text style={styles.completedAt}>{formatFullDate(item.completed_at)}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 export default function Archive() {
-  const [shipments, setShipments]     = useState<Shipment[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [query, setQuery]             = useState('');
-  const [modeFilter, setModeFilter]   = useState<ModeFilter>('all');
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
