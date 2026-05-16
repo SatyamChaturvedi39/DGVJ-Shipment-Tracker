@@ -60,65 +60,34 @@ graph TD
 
 ---
 
-## 🚀 Installation & Setup
+## 🔄 Operational Lifecycle: The Journey of a Shipment
+The platform automates the entire lifecycle of a logistics manifest across five distinct operational phases:
 
-### Prerequisites
-*   Node.js 18+ & Python 3.11+
-*   Expo Go app (for local development)
-*   Supabase Account & Groq API Key
-
-### 1. Repository Setup
-```bash
-git clone https://github.com/SatyamChaturvedi39/DGVJ-Shipment-Tracker.git
-cd DGVJ-Shipment-Tracker
-```
-
-### 2. Frontend Configuration
-```bash
-# Install dependencies
-npm install --legacy-peer-deps
-
-# Configure environment
-cp .env.example .env # Update with your API URLs
-
-# Run dev server
-npx expo start
-```
-
-### 3. Backend Configuration
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate # or venv\Scripts\activate on Windows
-
-# Install core requirements
-pip install -r requirements.txt
-
-# Launch API server
-uvicorn main:app --reload
-```
+1.  **📦 Pickup Phase**: Admin assigns a pickup driver. The driver receives a notification, starts tracking, and heads to the origin point.
+2.  **🚗 Transit to Terminal**: Once goods are secured, the driver marks the shipment as "In Transit." Real-time GPS telemetry begins streaming to the customer portal.
+3.  **✈ Handed to Carrier**: Goods are transferred to a long-haul carrier (Air or Train). The internal driver stops tracking, and the shipment enters a "wait" state.
+4.  **🛵 Out for Delivery**: Upon arrival at the destination hub, a delivery driver is assigned. They pick up the goods and initiate the final leg of the journey.
+5.  **✓ Successfully Delivered**: The driver captures the final status, the manifest is closed, and it is automatically moved to the secure Operations Archive.
 
 ---
 
-## 🏗 Deployment Guide
+## 🔒 Security & Access Architecture
+As a private enterprise tool, Digvijay Express implements a rigorous security model to protect logistics data:
 
-### API Deployment (Render.com)
-The backend is optimized for Render's Python environment.
-1. Create a **Web Service** pointing to the `backend` directory.
-2. Configure `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and `GROQ_API_KEY`.
-3. Set the build command to `pip install -r requirements.txt` and start command to `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-
-### Mobile Deployment (EAS)
-Generate the production Android manifest via Expo Application Services:
-```bash
-eas build --profile preview --platform android
-```
+*   **Role-Based Access Control (RBAC)**: Distinct permission sets for Admins (Full Control), Employees (Task-Specific), and Customers (View-Only).
+*   **Encrypted Telemetry**: All live GPS data is streamed via secure WebSockets and stored in an encrypted PostgreSQL database.
+*   **Geofence Verification**: The system verifies driver location against assigned manifest origin/destination to ensure operational integrity.
+*   **Zero-Knowledge Client Portal**: Customers can only access their specific shipment via unique, non-guessable tracking identifiers.
 
 ---
 
-## 📄 License
+## 📄 Proprietary Notice
+This application and its underlying source code are the exclusive intellectual property of **Digvijay Express**. 
+*   **Commercial Use**: Strictly prohibited without written authorization.
+*   **Redistribution**: Any unauthorized copying or distribution of this code will result in legal action.
+*   **Contact**: For internal support or enterprise inquiries, contact the Digvijay IT Operations Hub.
 
-This software is the proprietary property of **Digvijay Express, Bengaluru**. All rights reserved. For licensing inquiries, please contact the repository owner.
+---
 
 ---
 *Built with precision for the future of Indian logistics.*
