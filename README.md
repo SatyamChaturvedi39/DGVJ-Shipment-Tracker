@@ -56,7 +56,8 @@ graph TD
 | **Real-time** | WebSockets | Low-latency telemetry updates for live GPS tracking. |
 | **Database** | Supabase (PostgreSQL) | Robust relational data with powerful role-based access control. |
 | **AI Layer** | Llama 3.3 (Groq) | State-of-the-art inference for status generation and data analysis. |
-| **Geo/Maps** | OpenRouteService | Enterprise-grade routing, polyline generation, and ETA calculation. |
+| **Geo/Maps** | Google Maps SDK | High-performance map rendering and real-time marker visualization. |
+| **Routing** | OpenRouteService | Routing coordinates, polyline generation, and ETA calculation. |
 
 ---
 
@@ -85,7 +86,7 @@ As a private enterprise tool, Digvijay Express implements a rigorous security mo
 This application and its underlying source code are the exclusive intellectual property of **Digvijay Express**. 
 *   **Commercial Use**: Strictly prohibited without written authorization.
 *   **Redistribution**: Any unauthorized copying or distribution of this code will result in legal action.
-*   **Contact**: For internal support or enterprise inquiries, contact the Digvijay IT Operations Hub.
+*   **Contact**: For internal support or enterprise inquiries, contact the Digvijay Express Bangalore Branch Owner at digvijayex08@gmail.com .
 
 ---
 
