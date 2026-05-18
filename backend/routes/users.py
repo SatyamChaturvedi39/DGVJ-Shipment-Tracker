@@ -28,13 +28,13 @@ def update_me(body: UpdateProfileRequest, user: dict = Depends(get_current_user)
 
 
 @router.get("/employees")
-def get_employees(_user: dict = Depends(require_role("admin"))):
+def get_employees(_user: dict = Depends(require_role("admin", "employee"))):
     result = supabase.table("users").select("*").eq("role", "employee").eq("is_active", True).execute()
     return result.data
 
 
 @router.get("/customers")
-def get_customers(_user: dict = Depends(require_role("admin"))):
+def get_customers(_user: dict = Depends(require_role("admin", "employee"))):
     result = supabase.table("users").select("*").eq("role", "customer").eq("is_active", True).execute()
     return result.data
 

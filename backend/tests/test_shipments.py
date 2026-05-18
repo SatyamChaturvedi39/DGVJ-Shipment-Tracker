@@ -117,25 +117,25 @@ def test_advance_phase_to_transit(client, test_shipment):
     assert resp.json()["phase"] == "transit"
 
 
-def test_advance_phase_to_delivery(client, test_shipment):
+def test_advance_phase_to_out_for_delivery(client, test_shipment):
     sid = test_shipment["id"]
     # Must advance through transit first
     client.put(f"/shipments/{sid}/phase", json={"phase": "transit"},
                headers={"Authorization": "Bearer dev-mock-token"})
     resp = client.put(
         f"/shipments/{sid}/phase",
-        json={"phase": "delivery"},
+        json={"phase": "out_for_delivery"},
         headers={"Authorization": "Bearer dev-mock-token"},
     )
     assert resp.status_code == 200
-    assert resp.json()["phase"] == "delivery"
+    assert resp.json()["phase"] == "out_for_delivery"
 
 
 def test_advance_phase_to_completed_sets_completed_at(client, test_shipment):
     sid = test_shipment["id"]
     headers = {"Authorization": "Bearer dev-mock-token"}
     client.put(f"/shipments/{sid}/phase", json={"phase": "transit"}, headers=headers)
-    client.put(f"/shipments/{sid}/phase", json={"phase": "delivery"}, headers=headers)
+    client.put(f"/shipments/{sid}/phase", json={"phase": "out_for_delivery"}, headers=headers)
     client.put(f"/shipments/{sid}/phase", json={"phase": "completed"}, headers=headers)
 
     # Verify completed_at is set

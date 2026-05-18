@@ -129,7 +129,7 @@ export default function MyShipments() {
         <View style={styles.header}>
           <View style={styles.userRow}>
             <View>
-              <Text style={styles.greeting}>Greetings,</Text>
+              <Text style={styles.greeting}>Welcome,</Text>
               <Text style={styles.userName}>{user?.name ?? 'Customer'}</Text>
             </View>
             <View style={styles.avatarWrap}>
