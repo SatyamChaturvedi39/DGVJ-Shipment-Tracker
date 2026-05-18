@@ -231,10 +231,12 @@ export default function JobDetailScreen() {
   // Prevents WS phase_change alert from firing for the employee's own transitions
   const skipNextPhaseAlert = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showSpinner = true) => {
     if (!id) return;
-    setLoading(true);
-    setError(null);
+    if (showSpinner) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [detail, emps, custs] = await Promise.all([getShipment(id), getEmployees(), getCustomers()]);
       setShipment(detail);
@@ -243,13 +245,19 @@ export default function JobDetailScreen() {
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
         ?? (e instanceof Error ? e.message : 'Unknown error');
-      setError(`Could not load shipment: ${msg}`);
+      if (showSpinner) {
+        setError(`Could not load shipment: ${msg}`);
+      } else {
+        console.warn('Background reload failed:', msg);
+      }
     } finally {
-      setLoading(false);
+      if (showSpinner) {
+        setLoading(false);
+      }
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(true); }, [load]);
   useEffect(() => () => { locationSub.current?.remove(); }, []);
 
   // ── WebSocket: listen for admin phase overrides ───────────────────────────────
@@ -271,11 +279,11 @@ export default function JobDetailScreen() {
             // If the employee triggered this transition themselves, skip the alert
             if (skipNextPhaseAlert.current) {
               skipNextPhaseAlert.current = false;
-              load();
+              load(false);
               return;
             }
             stopTracking();
-            load();
+            load(false);
             Alert.alert(
               'Phase Updated by Admin',
               `This shipment has been moved to "${String(data.phase ?? '').replace(/_/g, ' ')}". Your GPS tracking has been paused — please review your current action.`,
@@ -440,9 +448,11 @@ export default function JobDetailScreen() {
           if (!continueGps) stopTracking();
           try {
             await transitionPhase(id!, nextPhase);
+            // Delay 1.2s to feel premium and let Supabase real-time triggers/events settle completely
+            await new Promise(resolve => setTimeout(resolve, 1200));
             if (continueGps) {
-              // Stay on screen and reload so GPS auto-start useEffect fires
-              await load();
+              // Stay on screen and reload silently
+              await load(false);
             } else {
               Alert.alert('Done', successMsg, [{ text: 'OK', onPress: () => router.back() }]);
             }
@@ -476,7 +486,7 @@ export default function JobDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error ?? 'Shipment not found.'}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={load}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => load(true)}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
@@ -648,7 +658,9 @@ export default function JobDetailScreen() {
                       stopTracking();
                       try {
                         await transitionPhase(id!, 'pickup');
-                        load();
+                        // Delay 1.2s to feel premium and let Supabase triggers settle
+                        await new Promise(resolve => setTimeout(resolve, 1200));
+                        await load(false);
                       } catch (e: unknown) {
                         const rawDetail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
                         const msg = Array.isArray(rawDetail)
