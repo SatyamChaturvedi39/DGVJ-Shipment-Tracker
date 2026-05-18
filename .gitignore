@@ -54,7 +54,15 @@ backend/.env
 *.sql
 
 # Note: package.json, app.json, eas.json, and tsconfig.json 
-# ARE REQUIRED for building the app and must remain in Git.
+# ARE REQUIRED for building the app and must remain in Git (or locally present).
+package.json
+package-lock.json
+tsconfig.json
+app.json
+eas.json
+.python-version
+.npmrc
+.env.example
 
 # IDE & Tools
 .claude/

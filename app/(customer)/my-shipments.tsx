@@ -130,7 +130,7 @@ export default function MyShipments() {
           <View style={styles.userRow}>
             <View>
               <Text style={styles.greeting}>Welcome,</Text>
-              <Text style={styles.userName}>{user?.name ?? 'Customer'}</Text>
+              <Text style={styles.userName}>{user?.name ? user.name.split(' ')[0] : 'Customer'}</Text>
             </View>
             <View style={styles.avatarWrap}>
               <Text style={styles.avatarChar}>{(user?.name ?? 'C')[0]}</Text>

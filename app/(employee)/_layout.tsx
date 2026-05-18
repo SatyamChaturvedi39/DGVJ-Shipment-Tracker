@@ -44,7 +44,7 @@ export default function EmployeeLayout() {
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 12 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
-                {user.name ?? 'Employee'}
+                {user.name ? user.name.split(' ')[0] : 'Employee'}
               </Text>
               <TouchableOpacity onPress={handleLogout} style={{ paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', borderRadius: 6 }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>Sign Out</Text>

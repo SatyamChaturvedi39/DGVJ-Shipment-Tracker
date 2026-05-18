@@ -136,7 +136,7 @@ export default function AdminDashboard() {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>{greeting()},</Text>
-          <Text style={styles.userName}>{user?.name ?? 'Commander'}</Text>
+          <Text style={styles.userName}>{user?.name ? user.name.split(' ')[0] : 'Commander'}</Text>
         </View>
         <View style={styles.avatarWrap}>
           <Text style={styles.avatarChar}>{(user?.name ?? 'A')[0]}</Text>

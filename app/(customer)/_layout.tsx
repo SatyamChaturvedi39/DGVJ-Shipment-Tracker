@@ -9,7 +9,7 @@ function CustomerName({ name }: { name: string }) {
   return (
     <View style={{ marginRight: 16 }}>
       <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
-        {name}
+        {name ? name.split(' ')[0] : ''}
       </Text>
     </View>
   );
