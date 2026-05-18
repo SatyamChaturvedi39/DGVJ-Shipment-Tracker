@@ -30,13 +30,13 @@ export const AuthContext = createContext<AuthState>({
   isLoading: true,
   isAuthenticated: false,
   authError: null,
-  clearAuthError: () => {},
+  clearAuthError: () => { },
   login: async () => 'needs_pin' as const,
-  verifyOTP: async () => {},
-  setupFirstPin: async () => {},
-  logout: async () => {},
-  setDevRole: () => {},
-  refreshUser: async () => {},
+  verifyOTP: async () => { },
+  setupFirstPin: async () => { },
+  logout: async () => { },
+  setDevRole: () => { },
+  refreshUser: async () => { },
 });
 
 function createMockUser(phone: string, role: UserRole): User {
@@ -46,7 +46,6 @@ function createMockUser(phone: string, role: UserRole): User {
     name: role === 'admin' ? 'Admin User' : role === 'employee' ? 'Employee User' : 'Customer User',
     role,
     company_name: role === 'customer' ? 'Test Company' : null,
-    firebase_uid: null,
     is_active: true,
     created_at: new Date().toISOString(),
   };
