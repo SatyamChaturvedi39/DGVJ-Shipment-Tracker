@@ -22,7 +22,7 @@ async def get_current_user(
             if result.data:
                 user = result.data[0]
                 if not user.get("is_active", True):
-                    raise HTTPException(status_code=403, detail="Account is inactive")
+                    raise HTTPException(status_code=403, detail="Your account has been suspended. Contact Digvijay Express.")
                 return user
             raise HTTPException(status_code=403, detail="Your number is not registered. Contact Digvijay Express to get access.")
         # Fallback (no phone in token) → first admin
@@ -42,7 +42,7 @@ async def get_current_user(
 
     user = result.data[0]
     if not user.get("is_active", True):
-        raise HTTPException(status_code=403, detail="Account is inactive")
+        raise HTTPException(status_code=403, detail="Your account has been suspended. Contact Digvijay Express.")
 
     return user
 
@@ -66,7 +66,7 @@ async def verify_token_string(token: str) -> dict:
             if result.data:
                 user = result.data[0]
                 if not user.get("is_active", True):
-                    raise ValueError("Account is inactive")
+                    raise ValueError("Your account has been suspended. Contact Digvijay Express.")
                 return user
             raise ValueError("Phone not registered")
         result = supabase.table("users").select("*").eq("role", "admin").limit(1).execute()
@@ -84,5 +84,5 @@ async def verify_token_string(token: str) -> dict:
         raise ValueError("User not found")
     user = result.data[0]
     if not user.get("is_active", True):
-        raise ValueError("Account is inactive")
+        raise ValueError("Your account has been suspended. Contact Digvijay Express.")
     return user

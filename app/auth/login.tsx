@@ -65,7 +65,8 @@ export default function LoginScreen() {
       const status = await login(`+91${phone}`);
       router.push(status === 'first_login' ? '/auth/setup-pin' : '/auth/verify');
     } catch (e: any) {
-      setError(e.message || 'Something went wrong. Try again.');
+      const detail = e?.response?.data?.detail || e.message || 'Something went wrong. Try again.';
+      setError(detail);
     } finally {
       setLoading(false);
     }

@@ -51,7 +51,7 @@ def check_phone(body: CheckPhoneRequest):
     if not user.get("is_active", True):
         raise HTTPException(
             status_code=403,
-            detail="Your account has been deactivated. Contact Digvijay Express."
+            detail="Your account has been suspended. Contact Digvijay Express."
         )
     return {"status": "first_login" if not user.get("pin_hash") else "needs_pin"}
 
@@ -79,7 +79,7 @@ def login(body: LoginRequest):
     if not user.get("is_active", True):
         raise HTTPException(
             status_code=403,
-            detail="Your account has been deactivated. Contact Digvijay Express."
+            detail="Your account has been suspended. Contact Digvijay Express."
         )
 
     # Step 2 — check PIN is set; signal first-login so frontend redirects to setup screen
@@ -114,7 +114,7 @@ def setup_pin_first(body: SetupPinFirstRequest):
 
     user = result.data[0]
     if not user.get("is_active", True):
-        raise HTTPException(status_code=403, detail="Account deactivated. Contact Digvijay Express.")
+        raise HTTPException(status_code=403, detail="Your account has been suspended. Contact Digvijay Express.")
     if user.get("pin_hash"):
         raise HTTPException(status_code=400, detail="PIN already set. Use the login screen to sign in.")
 
